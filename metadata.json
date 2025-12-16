@@ -1,0 +1,7 @@
+{
+  "name": "Formulario de Ingreso de Casos",
+  "description": "Una aplicación para completar un formulario detallado de ingreso de casos legales, incluyendo datos de clientes, vehículos, siniestros y la capacidad de transcribir la descripción de los hechos mediante audio.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
