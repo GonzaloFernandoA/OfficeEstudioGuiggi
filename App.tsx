@@ -451,32 +451,32 @@ function App() {
                                 </div>
                             </div>
 
-+                            {/* Setup Dropdown */}
-+                            <div className="relative group">
-+                                <button className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium leading-5 text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors focus:outline-none">
-+                                    Setup
-+                                    <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-+                                </button>
-+                                <div className="absolute left-0 mt-0 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform z-50 top-full">
-+                                    <div className="py-1">
-+                                        <button onClick={() => openSetupSection('comisaria')} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Comisaría</button>
-+                                        <button onClick={() => openSetupSection('aseguradoras')} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Aseguradoras</button>
-+                                        <button onClick={() => openSetupSection('contactos')} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Contactos</button>
-+                                        <button onClick={() => openSetupSection('marcas')} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Marcas</button>
-+                                    </div>
-+                                </div>
-+                            </div>
+                            {/* Setup Dropdown */}
+                            <div className="relative group">
+                                <button className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium leading-5 text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors focus:outline-none">
+                                    Setup
+                                    <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                                </button>
+                                <div className="absolute left-0 mt-0 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform z-50 top-full">
+                                    <div className="py-1">
+                                        <button onClick={() => openSetupSection('comisaria')} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Comisaría</button>
+                                        <button onClick={() => openSetupSection('aseguradoras')} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Aseguradoras</button>
+                                        <button onClick={() => openSetupSection('contactos')} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Contactos</button>
+                                        <button onClick={() => openSetupSection('marcas')} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Marcas</button>
+                                    </div>
+                                </div>
+                            </div>
                         </nav>
                     </div>
                     {/* Simplified mobile menu access - just show title on mobile, full nav hidden */}
                      <div className="md:hidden flex items-center space-x-4">
                         <button onClick={handleCreateCase} className="text-sm font-medium text-indigo-600">Crear Caso</button>
                         <button onClick={handleDashboard} className="text-sm font-medium text-slate-600">Tablero</button>
-+                        {/* Mobile quick access to setup sections */}
-+                        <div className="flex items-center space-x-2">
-+                            <button onClick={() => openSetupSection('comisaria')} className="text-sm font-medium text-slate-600">Comisaría</button>
-+                            <button onClick={() => openSetupSection('aseguradoras')} className="text-sm font-medium text-slate-600">Aseguradoras</button>
-+                        </div>
+                        {/* Mobile quick access to setup sections */}
+                        <div className="flex items-center space-x-2">
+                            <button onClick={() => openSetupSection('comisaria')} className="text-sm font-medium text-slate-600">Comisaría</button>
+                            <button onClick={() => openSetupSection('aseguradoras')} className="text-sm font-medium text-slate-600">Aseguradoras</button>
+                        </div>
                      </div>
                 </div>
             </header>
