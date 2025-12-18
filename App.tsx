@@ -6,6 +6,7 @@ import SelectField from './components/SelectField';
 import CheckboxGrid from './components/CheckboxGrid';
 import AudioRecorder from './components/AudioRecorder';
 import Dashboard from './components/Dashboard';
+import Contactos from './components/Contactos';
 import {
     ESTADO_CIVIL_OPTIONS,
     SI_NO_OPTIONS,
@@ -804,9 +805,7 @@ function App() {
                             </Section>
                         )}
                         {setupSection === 'contactos' && (
-                            <Section title="Setup — Contactos">
-                                <p className="text-sm text-slate-600">Aquí puedes gestionar contactos (teléfonos, emails).</p>
-                            </Section>
+                                <Contactos />
                         )}
                         {setupSection === 'marcas' && (
                             <Section title="Setup — Marcas">
