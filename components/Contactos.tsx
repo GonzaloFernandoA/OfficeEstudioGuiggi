@@ -3,64 +3,175 @@ import Section from './Section';
 import InputField from './InputField';
 
 type ContactForm = {
-  nombreCompleto: string;
-  telefono: string;
-  mail: string;
+    nombre: string;
+    apellido: string;
+    telefono: string;
+    mail: string;
 };
 
 const emptyForm = (): ContactForm => ({
-  nombreCompleto: '',
-  telefono: '',
-  mail: '',
+    nombre: '',
+    apellido: '',
+    telefono: '',
+    mail: '',
 });
 
 const Contactos: React.FC = () => {
-  const [form, setForm] = useState<ContactForm>(emptyForm());
-  const [errors, setErrors] = useState<Record<string,string>>({});
+    const [form, setForm] = useState<ContactForm>(emptyForm());
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
-  };
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setForm(prev => ({ ...prev, [name]: value }));
+        if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+    };
 
-  const validate = (): boolean => {
-    const newErrors: Record<string,string> = {};
-    if (!form.nombreCompleto.trim()) newErrors.nombreCompleto = 'Requerido';
-    if (form.telefono && !/^\+?[\d\s\(\)-]{7,}$/.test(form.telefono)) newErrors.telefono = 'Formato de teléfono inválido';
-    if (form.mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.mail)) newErrors.mail = 'Email inválido';
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+    const validate = (): boolean => {
+        const newErrors: Record<string, string> = {};
+        if (!form.nombre.trim()) newErrors.nombre = 'Requerido';
+        if (!form.apellido.trim()) newErrors.apellido = 'Requerido';
+        if (!form.mail.trim()) newErrors.mail = 'Requerido';
+        if (!form.telefono.trim()) newErrors.telefono = 'Requerido';
 
-  const handleSave = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!validate()) return;
-    // guardado demo: podés adaptar para persistir en localStorage o backend
-    alert('Contacto guardado (demo).');
-    setForm(emptyForm());
-  };
+        if (form.telefono && !/^\+?[\d\s\(\)-]{7,}$/.test(form.telefono)) newErrors.telefono = 'Formato de teléfono inválido';
+        if (form.mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.mail)) newErrors.mail = 'Email inválido';
 
-  return (
-    <Section title="Setup - Contactos" description="Gestione contactos (nombre y apellido, teléfono, mail).">
-      <form onSubmit={handleSave} className="md:col-span-3 lg:col-span-3">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <InputField label="Nombre y Apellido" name="nombreCompleto" value={form.nombreCompleto} onChange={handleChange} error={errors.nombreCompleto} required />
-          <InputField label="Teléfono" name="telefono" type="tel" value={form.telefono} onChange={handleChange} error={errors.telefono} />
-          <InputField label="Mail" name="mail" type="email" value={form.mail} onChange={handleChange} error={errors.mail} />
-        </div>
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
 
-        <div className="mt-4 flex items-center space-x-3">
-          <button type="submit" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
-            Guardar Contacto
-          </button>
-          <button type="button" onClick={() => setForm(emptyForm())} className="px-4 py-2 rounded-md bg-slate-100 border border-slate-300 text-sm">
-            Cancelar
-          </button>
-        </div>
-      </form>
-    </Section>
-  );
+    const handleSave = async (e?: React.FormEvent) => {
+        e?.preventDefault();
+        if (!validate()) return;
+
+        setLoading(true);
+        setMessage(null);
+
+        try {
+            const payload = {
+                Nombre: form.nombre.trim(),
+                Apellido: form.apellido.trim(),
+                Mail: form.mail.trim(),
+                Telefono: form.telefono.trim(),
+            };
+
+            console.log('📤 Enviando payload a /api/contactos:', JSON.stringify(payload, null, 2));
+
+            const response = await fetch('/api/contactos', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            console.log('📊 Status:', response.status, response.statusText);
+
+            const responseText = await response.text();
+            console.log('📨 Response body:', responseText);
+
+            if (!response.ok) {
+                console.error('❌ Error:', response.status, responseText);
+                throw new Error(`Error ${response.status}: ${responseText || response.statusText}`);
+            }
+
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch {
+                data = responseText;
+            }
+
+            console.log('✅ Éxito:', data);
+            setMessage({ type: 'success', text: 'Contacto guardado exitosamente.' });
+            setForm(emptyForm());
+        } catch (error) {
+            console.error('🔴 Error:', error);
+
+            let errorMessage = 'Error desconocido al guardar el contacto.';
+
+            if (error instanceof TypeError) {
+                errorMessage = 'No se puede conectar a la API. Verifica que el servidor esté ejecutándose.';
+            } else if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+
+            setMessage({ type: 'error', text: errorMessage });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <Section title="Setup - Contactos" description="Gestione contactos (nombre, apellido, teléfono, mail).">
+            <form onSubmit={handleSave} className="md:col-span-3 lg:col-span-3">
+                {message && (
+                    <div className={`mb-4 p-3 rounded-md ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        <p className="font-semibold">{message.type === 'success' ? '✅' : '❌'} {message.text}</p>
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <InputField
+                        label="Nombre"
+                        name="nombre"
+                        value={form.nombre}
+                        onChange={handleChange}
+                        error={errors.nombre}
+                        required
+                    />
+                    <InputField
+                        label="Apellido"
+                        name="apellido"
+                        value={form.apellido}
+                        onChange={handleChange}
+                        error={errors.apellido}
+                        required
+                    />
+                    <InputField
+                        label="Mail"
+                        name="mail"
+                        type="email"
+                        value={form.mail}
+                        onChange={handleChange}
+                        error={errors.mail}
+                        required
+                    />
+                    <InputField
+                        label="Teléfono"
+                        name="telefono"
+                        type="tel"
+                        value={form.telefono}
+                        onChange={handleChange}
+                        error={errors.telefono}
+                        required
+                    />
+                </div>
+
+                <div className="mt-4 flex items-center space-x-3">
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {loading ? 'Guardando...' : 'Guardar Contacto'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setForm(emptyForm());
+                            setMessage(null);
+                        }}
+                        className="px-4 py-2 rounded-md bg-slate-100 border border-slate-300 text-sm"
+                    >
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        </Section>
+    );
 };
 
 export default Contactos;
