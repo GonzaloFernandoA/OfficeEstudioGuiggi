@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Section from './Section';
 import InputField from './InputField';
+import { apiClient } from '../services/apiClient';
 
 type ContactForm = {
     nombre: string;
@@ -50,54 +51,21 @@ const Contactos: React.FC = () => {
         setMessage(null);
 
         try {
-            const payload = {
-                Nombre: form.nombre.trim(),
-                Apellido: form.apellido.trim(),
-                Mail: form.mail.trim(),
-                Telefono: form.telefono.trim(),
-            };
-
-            console.log('📤 Enviando payload a /api/contactos:', JSON.stringify(payload, null, 2));
-
-            const response = await fetch('/api/contactos', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload),
+            const response = await apiClient.post('/contactos', {
+                Nombre: form.nombre,
+                Apellido: form.apellido,
+                Mail: form.mail,
+                Telefono: form.telefono,
             });
 
-            console.log('📊 Status:', response.status, response.statusText);
-
-            const responseText = await response.text();
-            console.log('📨 Response body:', responseText);
-
-            if (!response.ok) {
-                console.error('❌ Error:', response.status, responseText);
-                throw new Error(`Error ${response.status}: ${responseText || response.statusText}`);
+            if (response.error) {
+                throw new Error(response.error);
             }
 
-            let data;
-            try {
-                data = JSON.parse(responseText);
-            } catch {
-                data = responseText;
-            }
-
-            console.log('✅ Éxito:', data);
             setMessage({ type: 'success', text: 'Contacto guardado exitosamente.' });
             setForm(emptyForm());
         } catch (error) {
-            console.error('🔴 Error:', error);
-
-            let errorMessage = 'Error desconocido al guardar el contacto.';
-
-            if (error instanceof TypeError) {
-                errorMessage = 'No se puede conectar a la API. Verifica que el servidor esté ejecutándose.';
-            } else if (error instanceof Error) {
-                errorMessage = error.message;
-            }
-
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido al guardar el contacto.';
             setMessage({ type: 'error', text: errorMessage });
         } finally {
             setLoading(false);
