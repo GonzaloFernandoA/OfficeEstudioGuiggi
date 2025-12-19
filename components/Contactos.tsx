@@ -52,10 +52,10 @@ const Contactos: React.FC = () => {
 
         try {
             const response = await apiClient.post('/contactos', {
-                Nombre: form.nombre,
-                Apellido: form.apellido,
-                Mail: form.mail,
-                Telefono: form.telefono,
+                Nombre: form.nombre.trim(),
+                Apellido: form.apellido.trim(),
+                Mail: form.mail.trim(),
+                Telefono: form.telefono.trim(),
             });
 
             if (response.error) {
