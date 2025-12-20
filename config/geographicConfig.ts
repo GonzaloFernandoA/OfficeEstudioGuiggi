@@ -1,27 +1,27 @@
 import type { GeographicConfig } from '../types';
 
 /**
- * Configuración geográfica por defecto
- * Puede ser reemplazada dinámicamente con datos desde una API o BD
+ * ConfiguraciÃ³n geogrÃ¡fica por defecto
+ * Puede ser reemplazada dinÃ¡micamente con datos desde una API o BD
  */
 export const DEFAULT_GEOGRAPHIC_CONFIG: GeographicConfig = {
   provincias: [
     { id: 'ba', nombre: 'Buenos Aires', codigo: 'BA' },
-    { id: 'caba', nombre: 'Ciudad Autónoma de Buenos Aires', codigo: 'CABA' },
+    { id: 'caba', nombre: 'Ciudad AutÃ³noma de Buenos Aires', codigo: 'CABA' },
     { id: 'catamarca', nombre: 'Catamarca', codigo: 'CA' },
     { id: 'chaco', nombre: 'Chaco', codigo: 'CH' },
     { id: 'chubut', nombre: 'Chubut', codigo: 'CT' },
-    { id: 'cordoba', nombre: 'Córdoba', codigo: 'CO' },
+    { id: 'cordoba', nombre: 'CÃ³rdoba', codigo: 'CO' },
     { id: 'corrientes', nombre: 'Corrientes', codigo: 'CR' },
-    { id: 'entrerios', nombre: 'Entre Ríos', codigo: 'ER' },
+    { id: 'entrerios', nombre: 'Entre RÃ­os', codigo: 'ER' },
     { id: 'formosa', nombre: 'Formosa', codigo: 'FO' },
     { id: 'jujuy', nombre: 'Jujuy', codigo: 'JU' },
     { id: 'lapampa', nombre: 'La Pampa', codigo: 'LP' },
     { id: 'larioja', nombre: 'La Rioja', codigo: 'LR' },
     { id: 'mendoza', nombre: 'Mendoza', codigo: 'MD' },
     { id: 'misiones', nombre: 'Misiones', codigo: 'MI' },
-    { id: 'neuquen', nombre: 'Neuquén', codigo: 'NQ' },
-    { id: 'rionegro', nombre: 'Río Negro', codigo: 'RN' },
+    { id: 'neuquen', nombre: 'NeuquÃ©n', codigo: 'NQ' },
+    { id: 'rionegro', nombre: 'RÃ­o Negro', codigo: 'RN' },
     { id: 'salta', nombre: 'Salta', codigo: 'SA' },
     { id: 'sanjuan', nombre: 'San Juan', codigo: 'SJ' },
     { id: 'sanluislapampa', nombre: 'San Luis', codigo: 'SL' },
@@ -29,7 +29,7 @@ export const DEFAULT_GEOGRAPHIC_CONFIG: GeographicConfig = {
     { id: 'santafe', nombre: 'Santa Fe', codigo: 'SF' },
     { id: 'santiago', nombre: 'Santiago del Estero', codigo: 'SE' },
     { id: 'tierrafuego', nombre: 'Tierra del Fuego', codigo: 'TF' },
-    { id: 'tucuman', nombre: 'Tucumán', codigo: 'TM' },
+    { id: 'tucuman', nombre: 'TucumÃ¡n', codigo: 'TM' },
   ],
   localidades: [
     // Buenos Aires
@@ -43,9 +43,9 @@ export const DEFAULT_GEOGRAPHIC_CONFIG: GeographicConfig = {
     { id: 'caba-recoleta', nombre: 'Recoleta', provincia: 'caba' },
     { id: 'caba-palermo', nombre: 'Palermo', provincia: 'caba' },
     { id: 'caba-santelmo', nombre: 'San Telmo', provincia: 'caba' },
-    // Córdoba
-    { id: 'cordoba-ciudad', nombre: 'Córdoba (Ciudad)', provincia: 'cordoba' },
-    { id: 'rio-cuarto', nombre: 'Río Cuarto', provincia: 'cordoba' },
+    // CÃ³rdoba
+    { id: 'cordoba-ciudad', nombre: 'CÃ³rdoba (Ciudad)', provincia: 'cordoba' },
+    { id: 'rio-cuarto', nombre: 'RÃ­o Cuarto', provincia: 'cordoba' },
     // Santa Fe
     { id: 'santa-fe-ciudad', nombre: 'Santa Fe (Ciudad)', provincia: 'santafe' },
     { id: 'rosario', nombre: 'Rosario', provincia: 'santafe' },
