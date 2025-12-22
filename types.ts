@@ -1,6 +1,5 @@
 // Fix: Removed self-import from './types' which was causing declaration conflicts.
 
-
 export interface Lesiones {
   centroMedico1: string;
   centroMedico2: string;
@@ -101,6 +100,25 @@ export interface Testigo {
     rol: string;
 }
 
+// Nuevas interfaces para Localidad y Provincia
+export interface Localidad {
+  id: string;
+  nombre: string;
+  provincia?: string;
+}
+
+export interface Provincia {
+  id: string;
+  nombre: string;
+  codigo?: string;
+}
+
+// Configuración dinámica de opciones geográficas
+export interface GeographicConfig {
+  provincias: Provincia[];
+  localidades: Localidad[];
+}
+
 export interface FormDataState {
   id?: number;
   cliente: Person & { recomienda: string };
@@ -138,4 +156,27 @@ export interface FormDataState {
     lesiones: string;
     reclamo: string;
   };
+}
+
+export interface Siniestro {
+  fecha: string;
+  hora: string;
+  calle: string;
+  localidad: string;
+  provincia: string;
+  descripcion: string;
+}
+
+export interface Damnificado {
+  nombre: string;
+  apellido: string;
+  dni: string;
+  calle: string;
+  localidad: string;
+  provincia: string;
+}
+
+export interface IngresoFormData {
+  siniestro: Siniestro;
+  damnificados: Damnificado[];
 }
