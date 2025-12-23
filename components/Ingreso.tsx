@@ -235,48 +235,55 @@ const Ingreso: React.FC = () => {
 
             {/* SINIESTRO */}
             <Section title="Siniestro" description="Datos del accidente o siniestro">
-                <InputField
-                    label="Fecha"
-                    name="fecha"
-                    type="date"
-                    value={formData.siniestro.fecha}
-                    onChange={handleSiniestroChange}
-                    error={errors['siniestro.fecha']}
-                    required
-                />
-                <InputField
-                    label="Hora"
-                    name="hora"
-                    type="time"
-                    value={formData.siniestro.hora}
-                    onChange={handleSiniestroChange}
-                    error={errors['siniestro.hora']}
-                />
-                <InputField
-                    label="Calle"
-                    name="calle"
-                    value={formData.siniestro.calle}
-                    onChange={handleSiniestroChange}
-                    error={errors['siniestro.calle']}
-                    required
-                />
-                <InputField
-                    label="Localidad"
-                    name="localidad"
-                    value={formData.siniestro.localidad}
-                    onChange={handleSiniestroChange}
-                    error={errors['siniestro.localidad']}
-                    required
-                />
-                <SelectField
-                    label="Provincia"
-                    name="provincia"
-                    value={formData.siniestro.provincia}
-                    onChange={handleSiniestroChange}
-                    options={provinciasOptions}
-                    error={errors['siniestro.provincia']}
-                    required
-                />
+
+                <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InputField
+                        label="Fecha"
+                        name="fecha"
+                        type="date"
+                        value={formData.siniestro.fecha}
+                        onChange={handleSiniestroChange}
+                        error={errors['siniestro.fecha']}
+                        required
+                    />
+                    <InputField
+                        label="Hora"
+                        name="hora"
+                        type="time"
+                        value={formData.siniestro.hora}
+                        onChange={handleSiniestroChange}
+                        error={errors['siniestro.hora']}
+                    />
+                </div>
+
+                <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <InputField
+                        label="Calle"
+                        name="calle"
+                        value={formData.siniestro.calle}
+                        onChange={handleSiniestroChange}
+                        error={errors['siniestro.calle']}
+                        required
+                    />
+                    <InputField
+                        label="Localidad"
+                        name="localidad"
+                        value={formData.siniestro.localidad}
+                        onChange={handleSiniestroChange}
+                        error={errors['siniestro.localidad']}
+                        required
+                    />
+                    <SelectField
+                        label="Provincia"
+                        name="provincia"
+                        value={formData.siniestro.provincia}
+                        onChange={handleSiniestroChange}
+                        options={provinciasOptions}
+                        error={errors['siniestro.provincia']}
+                        required
+                    />
+                </div>
+
                 <InputField
                     label="Descripción"
                     name="descripcion"
