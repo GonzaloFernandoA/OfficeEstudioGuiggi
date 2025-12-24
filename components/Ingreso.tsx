@@ -176,6 +176,7 @@ const Ingreso: React.FC = () => {
         try {
             // Preparar el JSON para enviar
             const payload = {
+                tabla: 'siniestro',
                 siniestro: {
                     fecha: formData.siniestro.fecha.trim(),
                     hora: formData.siniestro.hora.trim(),
@@ -194,7 +195,13 @@ const Ingreso: React.FC = () => {
                 })),
             };
 
-            console.log('📤 Enviando payload:', payload);
+            //console.log('📤 Enviando payload:', payload);
+
+            console.log(
+                'JSON enviado:',
+                JSON.stringify(payload, null, 2)
+            )
+
 
             // Enviar JSON al backend via apiClient
             const response = await apiClient.post('/ingreso', payload);
