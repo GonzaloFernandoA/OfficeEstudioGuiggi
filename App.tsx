@@ -8,6 +8,7 @@ import AudioRecorder from './components/AudioRecorder';
 import Dashboard from './components/Dashboard';
 import Contactos from './components/Contactos';
 import Ingreso from './components/Ingreso';
+import VersionBadge from './components/VersionBadge';
 import {
     ESTADO_CIVIL_OPTIONS,
     SI_NO_OPTIONS,
@@ -245,19 +246,15 @@ const DemandadosSectionComponent: React.FC<{
 
 // --- App Component ---
 function App() {
+
+const [cases, setCases] = useState<FormDataState[]>(() => {
+        const savedCases = localStorage.getItem('casos');
+        return savedCases ? JSON.parse(savedCases) : [];
+    });
     const [formData, setFormData] = useState<FormDataState>(initialState);
     const [errors, setErrors] = useState<ValidationErrors>({});
-    const [view, setView] = useState<View>('form');
-    const [cases, setCases] = useState<FormDataState[]>(() => {
-        try {
-            const savedCases = localStorage.getItem('casos');
-            return savedCases ? JSON.parse(savedCases) : [];
-        } catch (error) {
-            console.error("Error parsing cases from localStorage", error);
-            return [];
-        }
-    });
     const [editingCaseId, setEditingCaseId] = useState<number | null>(null);
+    const [view, setView] = useState<View>('dashboard');
 
     useEffect(() => {
         localStorage.setItem('casos', JSON.stringify(cases));
@@ -417,7 +414,7 @@ function App() {
 
     return (
         <div className="min-h-screen text-slate-800">
-            <header className="bg-white shadow-md sticky top-0 z-50">
+            <header className="bg-white shadow-md sticky top-0 z-50 relative">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
                      <div className="flex items-center">
                          {/* Logo / Title Area */}
@@ -497,6 +494,7 @@ function App() {
                         </div>
                      </div>
                 </div>
+                <VersionBadge />
             </header>
 
             <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -610,7 +608,7 @@ function App() {
                         <InputField label="Composición Familiar" name="coActor1.composicionFamiliar" value={formData.coActor1.composicionFamiliar} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.composicionFamiliar')} as="textarea" rows={2} className="md:col-span-3"/>
 
                         <InputField label="Mail" name="coActor1.mail" type="email" value={formData.coActor1.mail} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.mail')} />
-                        <InputField label="IG" name="coActor1.ig" value={formData.coActor1.ig} onChange={handleInputChange} />
+                        <InputField label="IG" name="coActor1.ig" value={formData.coActor1.ig} onChange={handleInputChange} onBlur={handleBlur} />
 
                         <div className="md:col-span-2 lg:col-span-3 my-4 border-t border-slate-200"></div>
                         <SelectField label="¿Posee Registro de Conducir?" name="coActor1.poseeRegistro" value={formData.coActor1.poseeRegistro} onChange={handleInputChange} onBlur={handleBlur} options={SI_NO_OPTIONS} />
@@ -803,7 +801,7 @@ function App() {
                             )}
                             <button
                                 type="submit"
-                                className="inline-flex justify-center py-3 px-6 border border-transparent shadow-lg text-base font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-105"
+                                className="inline-flex justify-center py-3 px-6 border border-transparent shadow-lg textBase font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-105"
                             >
                                 {editingCaseId ? 'Actualizar Caso' : 'Ingresar Caso'}
                             </button>
