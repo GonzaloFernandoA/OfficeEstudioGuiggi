@@ -58,6 +58,9 @@ const Ingreso: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [provincias, setProvincias] = useState<Provincia[]>([]);
+    // Estado para mostrar el convenio generado en modal
+    const [convenioText, setConvenioText] = useState<string | null>(null);
+    const [showConvenioModal, setShowConvenioModal] = useState(false);
 
     // Inicializar configuración geográfica
     useEffect(() => {
@@ -160,12 +163,116 @@ const Ingreso: React.FC = () => {
         }
     };
 
-    // Generar convenio para un damnificado específico (placeholder)
+    // Helper para escapar HTML al imprimir
+    const escapeHtml = (unsafe: string) => {
+        return unsafe
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    };
+
+    // Helper: convertir número del día (1-31) a palabras en español (minúsculas)
+    const dayNumberToSpanish = (n: number): string => {
+        const map: Record<number, string> = {
+            1: 'uno',2: 'dos',3: 'tres',4: 'cuatro',5: 'cinco',6: 'seis',7: 'siete',8: 'ocho',9: 'nueve',10: 'diez',
+            11: 'once',12: 'doce',13: 'trece',14: 'catorce',15: 'quince',16: 'dieciséis',17: 'diecisiete',18: 'dieciocho',19: 'diecinueve',20: 'veinte',
+            21: 'veintiuno',22: 'veintidós',23: 'veintitrés',24: 'veinticuatro',25: 'veinticinco',26: 'veintiséis',27: 'veintisiete',28: 'veintiocho',29: 'veintinueve',30: 'treinta',31: 'treinta y uno'
+        };
+        return map[n] || String(n);
+    };
+
+    const monthNumberToSpanish = (m: number): string => {
+        const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+        return months[(m - 1) >= 0 && (m - 1) < 12 ? (m - 1) : 0];
+    };
+
+    // Formatea una fecha en ISO (yyyy-mm-dd) u otros formatos a dd/mm/yyyy
+    const formatDateInputToDDMMYYYY = (dateStr: string): string => {
+        if (!dateStr) return '';
+        // Manejar formato yyyy-mm-dd
+        const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) {
+            const [, y, m, d] = isoMatch;
+            return `${d}/${m}/${y}`;
+        }
+        // Intentar parsear con Date como fallback
+        const dt = new Date(dateStr);
+        if (!isNaN(dt.getTime())) {
+            const dd = String(dt.getDate()).padStart(2, '0');
+            const mm = String(dt.getMonth() + 1).padStart(2, '0');
+            const yyyy = dt.getFullYear();
+            return `${dd}/${mm}/${yyyy}`;
+        }
+        return dateStr; // si no se puede formatear, devolver original
+    };
+
+    // Función que abre una nueva ventana con el convenio listo para imprimir
+    const handlePrintConvenio = (text: string) => {
+        const w = window.open('', '_blank');
+        if (!w) {
+            alert('No se pudo abrir la ventana de impresión. Revisa el bloqueador de pop-ups.');
+            return;
+        }
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Convenio</title><style>body{font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding:20px} pre{white-space:pre-wrap; font-size:14px}</style></head><body><pre>${escapeHtml(text)}</pre></body></html>`;
+        w.document.open();
+        w.document.write(html);
+        w.document.close();
+        w.focus();
+        // Llamamos a print; el usuario puede cancelar
+        w.print();
+    };
+
+    // Generar convenio para un damnificado específico: sustituye placeholders y abre modal
     const handleGenerarConvenio = (index: number) => {
-        const d = formData.damnificados[index];
-        console.log('Generando convenio para damnificado:', index, d);
-        alert(`Generando convenio para ${d.nombre || '[sin nombre]'} ${d.apellido || ''} (DNI: ${d.dni || 'N/A'})`);
-        // Aquí se puede integrar la llamada al backend para generar/descargar el convenio
+        const d = formData.damnificados[index] || emptyDamnificado();
+
+        const template = `\t\t\t\tCONVENIO DE HONORARIOS
+
+Entre MAXIMILIANO MARCELO GUIGGI, abogado, (Tº X Fº 29 CAM)y  NARDO JUAN FRANCO ( Tª xv Fª 319 CAM),  con estudio jurídico en la calle Alte. Brown 929 5º “A” de la localidad y partido de Morón, Pcia. de Buenos Aires, en adelante denominado “EL PROFESIONAL”, y por la otra parte _Apellido_ _Nombre_ dni _dni_ con domicilio en la calle _domicilio_ de la Localidad de _localidad_, provincia de _provincia_; en adelante denominado “el cliente” convienen en celebrar el presente convenio de honorarios profesionales, que se regirá por las siguientes cláusulas y condiciones:
+PRIMERA: EL CLIENTE encomienda al PROFESIONAL la gestión judicial y/o extrajudicial del cobro de de los daños y perjuicios del accidente de tránsito de fecha _fechaAccidente_ en la calle _domicilioAccidente_ de la localidad de _localidadAccidente_, Provincia de _provinciaAccidente_, en donde resultara víctima el cliente
+SEGUNDA: El honorario del profesional será del 30% de la indemnización total percibida por el cliente. En caso de que el CLIENTE no perciba indemnización alguna producto del siniestro reclamado, nada tendrá que abonar al PROFESIONAL, en concepto de honorarios. Los gastos que abonare el PROFESIONAL, serán deducidos de la indemnización percibida por el cliente.
+TERCERA: La revocación del poder, sustitución del patrocinio o rescisión unilateral por el cliente no anulará el presente convenio, con la excepción de que mediare culpa del profesional
+CUARTA: Para todos los efectos del presente las partes constituyen domicilios especiales en los consignados más arriba, lugares en los que se tendrá por válida y eficaz toda notificación que fuera menester y se someten a la competencia de los tribunales Ordinarios del Departamento Judicial de Morón renunciando a todo otro fuero y/o jurisdicción.
+En prueba de conformidad, firman el presente en dos ejemplares de idéntico tenor y a un solo efecto, en Morón a los _fechaHoy_.-
+`;
+
+        // Valores a reemplazar
+        // Generar la fecha en palabras: "a los veinticinco días del mes de noviembre de 2025"
+        const now = new Date();
+        const day = now.getDate();
+        const month = now.getMonth() + 1;
+        const year = now.getFullYear();
+        const dayWords = dayNumberToSpanish(day);
+        const monthName = monthNumberToSpanish(month);
+        const rawFechaHoy = `a los ${dayWords} días del mes de ${monthName} de ${year}`;
+        const fechaHoyFormatted = (rawFechaHoy && (rawFechaHoy as string).toLocaleUpperCase)
+            ? rawFechaHoy.toLocaleUpperCase('es-AR')
+            : rawFechaHoy.toUpperCase();
+
+        const values: Record<string, string> = {
+            '_Apellido_': d.apellido || '',
+            '_Nombre_': d.nombre || '',
+            '_dni_': d.dni || '',
+            '_domicilio_': d.calle || '',
+            '_localidad_': d.localidad || '',
+            '_provincia_': d.provincia || '',
+            '_fechaAccidente_': formatDateInputToDDMMYYYY(formData.siniestro.fecha || ''),
+            '_domicilioAccidente_': formData.siniestro.calle || '',
+            '_localidadAccidente_': formData.siniestro.localidad || '',
+            '_provinciaAccidente_': formData.siniestro.provincia || '',
+            '_fechaHoy_': fechaHoyFormatted,
+        };
+
+        let finalText = template;
+        Object.keys(values).forEach(key => {
+            const re = new RegExp(key.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
+            finalText = finalText.replace(re, values[key]);
+        });
+
+        setConvenioText(finalText);
+        setShowConvenioModal(true);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -239,9 +346,20 @@ const Ingreso: React.FC = () => {
 
     return (
         <form onSubmit={handleSubmit} noValidate className="space-y-6">
-            {message && (
-                <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    <p className="font-semibold">{message.text}</p>
+            {/* Modal del Convenio */}
+            {showConvenioModal && convenioText && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black opacity-50" onClick={() => setShowConvenioModal(false)} />
+                    <div className="relative bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-y-auto p-6 z-10">
+                        <h3 className="text-lg font-bold text-slate-800 mb-4">Convenio Generado</h3>
+                        <div className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-md mb-4" style={{ whiteSpace: 'pre-wrap' }}>
+                            {convenioText}
+                        </div>
+                        <div className="flex justify-end space-x-3">
+                            <button onClick={() => setShowConvenioModal(false)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-md border border-slate-300">Cerrar</button>
+                            <button onClick={() => convenioText && handlePrintConvenio(convenioText)} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md">Imprimir</button>
+                        </div>
+                    </div>
                 </div>
             )}
 
