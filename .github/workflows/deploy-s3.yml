@@ -3,11 +3,15 @@ name: Deploy to S3
 on:
   push:
     branches:
+      - QA
       - release202512
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    # QA -> qa | release202512 -> prod
+    environment: ${{ github.ref_name == 'release202512' && 'prod' || 'qa' }}
 
     steps:
       - name: Checkout code
@@ -17,9 +21,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Create .env for build
+        run: |
+          cat > .env << 'EOF'
+          REACT_APP_N8N_API_KEY=${{ secrets.REACT_APP_N8N_API_KEY }}
+          REACT_APP_STAGE=${{ github.ref_name }}
+          EOF
 
       - name: Build project
         run: npm run build
@@ -29,8 +41,8 @@ jobs:
         with:
           args: --delete
         env:
-          AWS_S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          AWS_S3_BUCKET: ${{ vars.S3_BUCKET_NAME }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          SOURCE_DIR: dist   # build o dist según tu framework
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          SOURCE_DIR: dist
