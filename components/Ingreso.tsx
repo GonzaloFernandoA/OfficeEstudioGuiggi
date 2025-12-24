@@ -88,10 +88,7 @@ const Ingreso: React.FC = () => {
             newErrors['siniestro.provincia'] = 'La provincia es requerida';
             isValid = false;
         }
-        if (!formData.siniestro.descripcion.trim()) {
-            newErrors['siniestro.descripcion'] = 'La descripción es requerida';
-            isValid = false;
-        }
+        // La descripción NO es obligatoria (se permite vacía)
 
         // Validar damnificados
         formData.damnificados.forEach((d, index) => {
@@ -161,6 +158,14 @@ const Ingreso: React.FC = () => {
                 damnificados: prev.damnificados.filter((_, i) => i !== index)
             }));
         }
+    };
+
+    // Generar convenio para un damnificado específico (placeholder)
+    const handleGenerarConvenio = (index: number) => {
+        const d = formData.damnificados[index];
+        console.log('Generando convenio para damnificado:', index, d);
+        alert(`Generando convenio para ${d.nombre || '[sin nombre]'} ${d.apellido || ''} (DNI: ${d.dni || 'N/A'})`);
+        // Aquí se puede integrar la llamada al backend para generar/descargar el convenio
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -301,7 +306,6 @@ const Ingreso: React.FC = () => {
                     placeholder="Describa los detalles del siniestro..."
                     error={errors['siniestro.descripcion']}
                     className="md:col-span-3 lg:col-span-3"
-                    required
                 />
             </Section>
 
@@ -311,16 +315,25 @@ const Ingreso: React.FC = () => {
                     <div key={index} className="md:col-span-3 border-t border-slate-200 pt-6 mt-6 first:mt-0 first:border-t-0">
                         <div className="flex justify-between items-center mb-4">
                             <h4 className="text-lg font-semibold text-slate-700">Damnificado {index + 1}</h4>
-                            {formData.damnificados.length > 1 && (
+                            <div className="flex items-center space-x-3">
                                 <button
                                     type="button"
-                                    onClick={() => removeDamnificado(index)}
-                                    className="text-sm text-red-600 hover:text-red-800 font-medium"
+                                    onClick={() => handleGenerarConvenio(index)}
+                                    className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                                 >
-                                    Eliminar
+                                    Convenio
                                 </button>
-                            )}
-                        </div>
+                                {formData.damnificados.length > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => removeDamnificado(index)}
+                                        className="text-sm text-red-600 hover:text-red-800 font-medium"
+                                    >
+                                        Eliminar
+                                    </button>
+                                )}
+                            </div>
+                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <InputField
@@ -420,3 +433,4 @@ const Ingreso: React.FC = () => {
 };
 
 export default Ingreso;
+
