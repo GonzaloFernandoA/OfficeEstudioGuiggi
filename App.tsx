@@ -247,7 +247,19 @@ const DemandadosSectionComponent: React.FC<{
 // --- App Component ---
 function App() {
 
-const [cases, setCases] = useState<FormDataState[]>(() => {
+    // Detectar stage de build/run: soporta import.meta.env, VITE_ prefix y fallback a window.*
+    const getAppStage = (): string => {
+        try {
+            const im = (import.meta as any)?.env;
+            const candidate = im?.REACT_APP_STAGE || im?.VITE_REACT_APP_STAGE || (window as any).__REACT_APP_STAGE__ || (window as any).REACT_APP_STAGE;
+            return candidate ? String(candidate).toUpperCase() : '';
+        } catch (e) {
+            return '';
+        }
+    };
+
+    const appStage = getAppStage();
+    const [cases, setCases] = useState<FormDataState[]>(() => {
         const savedCases = localStorage.getItem('casos');
         return savedCases ? JSON.parse(savedCases) : [];
     });
@@ -495,7 +507,12 @@ const [cases, setCases] = useState<FormDataState[]>(() => {
                      </div>
                 </div>
                 <VersionBadge />
-            </header>
+                {appStage === 'TESTING' && (
+                    <div aria-hidden className="absolute right-20 top-2 text-xs text-white bg-red-600 px-2 py-0.5 rounded-md shadow-sm z-50">
+                        TESTING
+                    </div>
+                )}
+             </header>
 
             <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {view === 'ingreso' ? (
