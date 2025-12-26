@@ -424,7 +424,7 @@ const [cases, setCases] = useState<FormDataState[]>(() => {
                         {/* Desktop Menu */}
                         <nav className="hidden md:ml-10 md:flex md:space-x-8">
                             {/* Ingreso */}
-                            <button onClick={handleCreateCase} className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition-colors focus:outline-none ${view === 'form' ? 'border-indigo-500 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+                            <button onClick={() => setView('ingreso')} className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition-colors focus:outline-none ${view === 'ingreso' ? 'border-indigo-500 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
                                 Ingreso
                             </button>
 
@@ -474,7 +474,7 @@ const [cases, setCases] = useState<FormDataState[]>(() => {
                     </div>
                     {/* Simplified mobile menu access */}
                     <div className="md:hidden flex items-center space-x-4">
-                        <button onClick={handleCreateCase} className="text-sm font-medium text-indigo-600">Ingreso</button>
+                        <button onClick={() => setView('ingreso')} className="text-sm font-medium text-indigo-600">Ingreso</button>
                         <button onClick={handleCreateCase} className="text-sm font-medium text-indigo-600">Crear Caso</button>
                         <button onClick={handleDashboard} className="text-sm font-medium text-slate-600">Tablero</button>
                         {/* Mobile quick access to setup sections */}
