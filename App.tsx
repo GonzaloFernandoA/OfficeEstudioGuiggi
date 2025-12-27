@@ -435,20 +435,10 @@ function App() {
                         </div>
                         {/* Desktop Menu */}
                         <nav className="hidden md:ml-10 md:flex md:space-x-8">
-                            {/* Ingreso - PRIMERO */}
-                            <div className="relative group">
-                                <button className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium leading-5 text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors focus:outline-none">
-                                    Ingreso
-                                    <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-                                </button>
-                                <div className="absolute left-0 mt-0 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform z-50 top-full">
-                                    <div className="py-1">
-                                        <button onClick={() => setView('ingreso')} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">
-                                            Nuevo Ingreso
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                            {/* Ingreso */}
+                            <button onClick={() => setView('ingreso')} className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition-colors focus:outline-none ${view === 'ingreso' ? 'border-indigo-500 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+                                Ingreso
+                            </button>
 
                             {/* Casos Dropdown */}
                             <div className="relative group">
