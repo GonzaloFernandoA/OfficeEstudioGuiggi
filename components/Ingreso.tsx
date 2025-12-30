@@ -3,6 +3,7 @@ import Section from './Section';
 import InputField from './InputField';
 import SelectField from './SelectField';
 import { apiClient } from '../services/apiClient';
+import { postJson, endpoints, baseUrl } from '../services/apiConfig';
 import { geographicService } from '../services/geographicService';
 import { DEFAULT_GEOGRAPHIC_CONFIG } from '../config/geographicConfig';
 import type { Provincia } from '../types';
@@ -316,10 +317,31 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
 
 
             // Enviar JSON al backend via apiClient
-            const response = await apiClient.post('/ingreso', payload);
+            // Use centralized apiConfig endpoint 'casos' with POST helper
+            try {
+                const res = await postJson(endpoints.casos, payload);
+                console.log('Respuesta API (postJson):', res);
+            } catch (err) {
+                if (err instanceof Error) throw err;
+                throw new Error(String(err));
+            }
 
-            if (response.error) {
-                throw new Error(response.error);
+            // Dev-only: additionally log the JSON to a local temp server if enabled
+            try {
+                const enableLocalLog = import.meta.env.VITE_ENABLE_LOCAL_LOG === 'true';
+                // También permitir el registro local automático cuando baseUrl apunta a localhost
+                const baseIsLocal = baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1');
+                if (enableLocalLog || baseIsLocal) {
+                    const localLogUrl = import.meta.env.VITE_LOCAL_LOG_URL ?? 'http://localhost:4001/log';
+                    // Fire-and-forget; no fallar el guardado si falla el registro
+                    fetch(localLogUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    }).then(r => r.json().then(j => console.log('Respuesta del registro local:', j)).catch(() => console.log('Registro local guardado'))).catch(e => console.warn('Error en el registro local:', e));
+                }
+            } catch (e) {
+                console.warn('No se pudo enviar log local:', e);
             }
 
             setMessage({ type: 'success', text: '✅ Ingreso guardado exitosamente.' });

@@ -8,6 +8,7 @@ export const timeoutMs: number = Number(import.meta.env.VITE_API_TIMEOUT_MS) || 
 
 export const endpoints = {
   contactos: '/contactos',
+  casos: '/casos',
 } as const;
 
 export function buildUrl(path: string, params?: Record<string, string | number>): string {
@@ -58,4 +59,3 @@ export async function postJson<T = any, R = any>(path: string, body: T, customTi
     clearTimeout(timer);
   }
 }
-
