@@ -1,18 +1,16 @@
 ﻿import React, { useState, useEffect } from 'react';
 import Section from './Section';
 import InputField from './InputField';
-import SelectField from './SelectField';
-import { apiClient } from '../services/apiClient';
+import ProvinciaSelect from './ProvinciaSelect';
 import { geographicService } from '../services/geographicService';
-import { DEFAULT_GEOGRAPHIC_CONFIG } from '../config/geographicConfig';
-import type { Provincia } from '../types';
+import { apiClient } from '../services/apiClient';
 
 interface Siniestro {
     fecha: string;
     hora: string;
     calle: string;
     localidad: string;
-    provincia: string;
+    provincia: string; // ahora almacena el id de la provincia
     descripcion: string;
 }
 
@@ -22,7 +20,7 @@ interface Damnificado {
     dni: string;
     calle: string;
     localidad: string;
-    provincia: string;
+    provincia: string; // id de provincia
 }
 
 interface IngresoFormData {
@@ -57,17 +55,13 @@ const Ingreso: React.FC = () => {
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-    const [provincias, setProvincias] = useState<Provincia[]>([]);
+    
     // Estado para mostrar el convenio generado en modal
     const [convenioText, setConvenioText] = useState<string | null>(null);
     const [showConvenioModal, setShowConvenioModal] = useState(false);
 
-    // Inicializar configuración geográfica
-    useEffect(() => {
-        geographicService.initializeStatic(DEFAULT_GEOGRAPHIC_CONFIG);
-        const provinciasList = geographicService.getProvincias();
-        setProvincias(provinciasList);
-    }, []);
+
+    
 
     // Validación
     const validateForm = (): boolean => {
@@ -251,17 +245,21 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
             ? rawFechaHoy.toLocaleUpperCase('es-AR')
             : rawFechaHoy.toUpperCase();
 
+        // Resolver nombres de provincia desde los ids almacenados
+        const damnificadoProvinciaNombre = geographicService.getProvinciaById(d.provincia || '')?.nombre || d.provincia || '';
+        const siniestroProvinciaNombre = geographicService.getProvinciaById(formData.siniestro.provincia || '')?.nombre || formData.siniestro.provincia || '';
+
         const values: Record<string, string> = {
             '_Apellido_': d.apellido || '',
             '_Nombre_': d.nombre || '',
             '_dni_': d.dni || '',
             '_domicilio_': d.calle || '',
             '_localidad_': d.localidad || '',
-            '_provincia_': d.provincia || '',
+            '_provincia_': damnificadoProvinciaNombre,
             '_fechaAccidente_': formatDateInputToDDMMYYYY(formData.siniestro.fecha || ''),
             '_domicilioAccidente_': formData.siniestro.calle || '',
             '_localidadAccidente_': formData.siniestro.localidad || '',
-            '_provinciaAccidente_': formData.siniestro.provincia || '',
+            '_provinciaAccidente_': siniestroProvinciaNombre,
             '_fechaHoy_': fechaHoyFormatted,
         };
 
@@ -287,32 +285,51 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
 
         try {
             // Preparar el JSON para enviar
-            const payload = {
-                tabla: 'siniestro',
-                siniestro: {
-                    fecha: formData.siniestro.fecha.trim(),
-                    hora: formData.siniestro.hora.trim(),
-                    calle: formData.siniestro.calle.trim(),
-                    localidad: formData.siniestro.localidad.trim(),
-                    provincia: formData.siniestro.provincia.trim(),
-                    descripcion: formData.siniestro.descripcion.trim(),
-                },
-                damnificados: formData.damnificados.map(d => ({
-                    nombre: d.nombre.trim(),
-                    apellido: d.apellido.trim(),
-                    dni: d.dni.trim(),
-                    calle: d.calle.trim(),
-                    localidad: d.localidad.trim(),
-                    provincia: d.provincia.trim(),
-                })),
-            };
+                const resolveProvinciaId = (val: string) => {
+                    const v = (val || '').trim();
+                    if (!v) return '';
+                    // If it's already an id
+                    if (geographicService.getProvinciaById(v)) return v;
+                    // Try to find by nombre (case-insensitive)
+                    const found = (geographicService.getProvincias() || []).find(p => String(p.nombre || '').toLowerCase() === v.toLowerCase());
+                    if (found) return found.id;
+                    // As fallback, also try slugifying the name to match API behavior
+                    const slug = String(v).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                    if (geographicService.getProvinciaById(slug)) return slug;
+                    return v; // leave as-is if not resolvable
+                };
+
+                const payload = {
+                    tabla: 'siniestro',
+                    siniestro: {
+                        fecha: formData.siniestro.fecha.trim(),
+                        hora: formData.siniestro.hora.trim(),
+                        calle: formData.siniestro.calle.trim(),
+                        localidad: formData.siniestro.localidad.trim(),
+                        provincia: resolveProvinciaId(formData.siniestro.provincia),
+                        descripcion: formData.siniestro.descripcion.trim(),
+                    },
+                    damnificados: formData.damnificados.map(d => ({
+                        nombre: d.nombre.trim(),
+                        apellido: d.apellido.trim(),
+                        dni: d.dni.trim(),
+                        calle: d.calle.trim(),
+                        localidad: d.localidad.trim(),
+                        provincia: resolveProvinciaId(d.provincia),
+                    })),
+                };
 
             //console.log('📤 Enviando payload:', payload);
 
-            console.log(
-                'JSON enviado:',
-                JSON.stringify(payload, null, 2)
-            )
+            console.log('JSON enviado:', JSON.stringify(payload, null, 2));
+            // Para depuración, mostrar resolución de nombres a ids cuando haya diferencias
+            try {
+                const originalProv = formData.siniestro.provincia;
+                const resolvedProv = payload.siniestro.provincia;
+                if (originalProv && originalProv !== resolvedProv) {
+                    console.log(`Provincia siniestro resuelta: "${originalProv}" -> "${resolvedProv}"`);
+                }
+            } catch (e) { /* ignore */ }
 
 
             // Enviar JSON al backend via apiClient
@@ -341,8 +358,7 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
         }
     };
 
-    // Convertir provincias a opciones para SelectField
-    const provinciasOptions = provincias.map(p => p.nombre);
+    
 
     return (
         <form onSubmit={handleSubmit} noValidate className="space-y-6">
@@ -403,12 +419,10 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                         error={errors['siniestro.localidad']}
                         required
                     />
-                    <SelectField
-                        label="Provincia"
+                    <ProvinciaSelect
                         name="provincia"
                         value={formData.siniestro.provincia}
                         onChange={handleSiniestroChange}
-                        options={provinciasOptions}
                         error={errors['siniestro.provincia']}
                         required
                     />
@@ -494,12 +508,10 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                                 error={errors[`damnificados.${index}.localidad`]}
                                 required
                             />
-                            <SelectField
-                                label="Provincia"
+                            <ProvinciaSelect
                                 name="provincia"
                                 value={damnificado.provincia}
                                 onChange={(e) => handleDamnificadoChange(index, e)}
-                                options={provinciasOptions}
                                 error={errors[`damnificados.${index}.provincia`]}
                                 required
                             />

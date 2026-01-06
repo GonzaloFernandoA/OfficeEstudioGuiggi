@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+/.vs/OfficeEstudioGuiggiFRAN/CopilotIndices
+/.vs/OfficeEstudioGuiggiFRAN/FileContentIndex
+/.vs/OfficeEstudioGuiggiFRAN/copilot-chat/9821819e/sessions

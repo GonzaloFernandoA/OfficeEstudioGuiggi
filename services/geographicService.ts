@@ -27,7 +27,27 @@ class GeographicService {
       const response = await fetch(apiUrl);
       if (!response.ok) throw new Error(`Error ${response.status}`);
       const data = await response.json();
-      this.config = data;
+
+      if (data && Array.isArray(data.records)) {
+        const provincias = data.records.map((r: any) => {
+          const name = (r.fields && (r.fields.Name || r.fields.name)) || r.name || String(r.id || '');
+          const id = String(r.id || String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
+          return { id, nombre: String(name) } as any;
+        });
+        this.config = { provincias, localidades: [] };
+      }
+      // Normalizar respuesta: la API puede devolver directamente un array de provincias
+      // o un objeto { provincias: [...], localidades: [...] }
+      else if (Array.isArray(data)) {
+        this.config = { provincias: data, localidades: [] };
+      } else if (data && typeof data === 'object') {
+        this.config = {
+          provincias: Array.isArray(data.provincias) ? data.provincias : [],
+          localidades: Array.isArray(data.localidades) ? data.localidades : [],
+        };
+      } else {
+        this.config = { provincias: [], localidades: [] };
+      }
       console.log('✅ Configuración geográfica cargada desde API');
     } catch (error) {
       console.error('❌ Error cargando configuración desde API:', error);
