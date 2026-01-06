@@ -58,15 +58,38 @@ const Ingreso: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [provincias, setProvincias] = useState<Provincia[]>([]);
+    const [provinciasLoading, setProvinciasLoading] = useState<boolean>(true);
     // Estado para mostrar el convenio generado en modal
     const [convenioText, setConvenioText] = useState<string | null>(null);
     const [showConvenioModal, setShowConvenioModal] = useState(false);
 
-    // Inicializar configuración geográfica
+
     useEffect(() => {
-        geographicService.initializeStatic(DEFAULT_GEOGRAPHIC_CONFIG);
-        const provinciasList = geographicService.getProvincias();
-        setProvincias(provinciasList);
+        let mounted = true;
+
+        (async () => {
+            setProvinciasLoading(true);
+            try {
+                await geographicService.initializeFromAPI("https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/provincias");
+                if (!mounted) return;
+                const provinciasList = geographicService.getProvincias() || [];
+                setProvincias(provinciasList);
+            } catch (err) {
+                console.error('Error cargando provincias desde API:', err);
+                // Intentar fallback a configuración estática
+                try {
+                    geographicService.initializeStatic(DEFAULT_GEOGRAPHIC_CONFIG);
+                    if (!mounted) return;
+                    setProvincias(geographicService.getProvincias() || []);
+                } catch (e) {
+                    console.error('Fallback a configuración estática falló:', e);
+                }
+            } finally {
+                if (mounted) setProvinciasLoading(false);
+            }
+        })();
+
+        return () => { mounted = false; };
     }, []);
 
     // Validación
@@ -409,6 +432,7 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                         value={formData.siniestro.provincia}
                         onChange={handleSiniestroChange}
                         options={provinciasOptions}
+                        loading={provinciasLoading}
                         error={errors['siniestro.provincia']}
                         required
                     />
@@ -500,6 +524,7 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                                 value={damnificado.provincia}
                                 onChange={(e) => handleDamnificadoChange(index, e)}
                                 options={provinciasOptions}
+                                loading={provinciasLoading}
                                 error={errors[`damnificados.${index}.provincia`]}
                                 required
                             />

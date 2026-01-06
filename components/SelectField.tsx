@@ -6,11 +6,13 @@ interface SelectFieldProps {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   onBlur?: (e: React.FocusEvent<HTMLSelectElement>) => void;
+  onFocus?: (e: React.FocusEvent<HTMLSelectElement>) => void;
   options: string[];
   placeholder?: string;
   className?: string;
   required?: boolean;
   error?: string;
+  loading?: boolean;
 }
 
 const SelectField: React.FC<SelectFieldProps> = ({
@@ -24,7 +26,18 @@ const SelectField: React.FC<SelectFieldProps> = ({
   className = '',
   required = false,
   error,
+  loading = false,
 }) => {
+  const [interacted, setInteracted] = React.useState(false);
+
+  const handleFocus = (e: React.FocusEvent<HTMLSelectElement>) => {
+    setInteracted(true);
+    if (onFocus) onFocus(e);
+  };
+
+  const handleMouseDown = () => {
+    setInteracted(true);
+  };
   return (
     <div className={className}>
       <label htmlFor={name} className="block text-sm font-medium text-slate-700 mb-1">
@@ -42,11 +55,19 @@ const SelectField: React.FC<SelectFieldProps> = ({
             ? 'border-red-500 text-red-900 focus:ring-red-500 focus:border-red-500'
             : 'border-slate-300 focus:ring-indigo-500 focus:border-indigo-500'
         }`}
+        onFocus={handleFocus}
+        onMouseDown={handleMouseDown}
       >
-        <option value="" disabled>{placeholder}</option>
-        {options.map((option) => (
-          <option key={option} value={option}>{option}</option>
-        ))}
+        {loading && interacted ? (
+          <option value="" disabled> Cargando...</option>
+        ) : (
+          <>
+            <option value="" disabled>{placeholder}</option>
+            {options.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </>
+        )}
       </select>
       {error && <p className="mt-1 text-xs text-red-600" role="alert">{error}</p>}
     </div>
