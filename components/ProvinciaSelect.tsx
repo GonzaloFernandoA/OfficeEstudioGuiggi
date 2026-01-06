@@ -1,95 +1,79 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import SelectField from './SelectField';
 import { geographicService } from '../services/geographicService';
-import { DEFAULT_GEOGRAPHIC_CONFIG } from '../config/geographicConfig';
 
 interface ProvinciaSelectProps {
-  label?: string;
-  name: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
-  placeholder?: string;
-  className?: string;
-  required?: boolean;
-  error?: string;
-  apiUrl?: string;
-  allowStaticFallback?: boolean;
+    label?: string;
+    name: string;
+    value: string;
+    onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+    placeholder?: string;
+    className?: string;
+    required?: boolean;
+    error?: string;
+    apiUrl?: string;
 }
 
 const DEFAULT_API = 'https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/provincias';
 
 const ProvinciaSelect: React.FC<ProvinciaSelectProps> = ({
-  label = 'Provincia',
-  name,
-  value,
-  onChange,
-  placeholder,
-  className,
-  required = false,
-  error,
-  apiUrl = DEFAULT_API,
-  allowStaticFallback = true,   //Con False se puede deshabilitar el fallback estático
+    label = 'Provincia',
+    name,
+    value,
+    onChange,
+    placeholder,
+    className,
+    required = false,
+    error,
+    apiUrl = DEFAULT_API,
 }) => {
-  const [options, setOptions] = useState<Array<string | { value: string; label: string }>>([]);
-  const [loading, setLoading] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+    const [options, setOptions] = useState<Array<{ value: string; label: string }>>([]);
+    const [loading, setLoading] = useState(false);
 
-  const fetchIfNeeded = useCallback(async () => {
-    if (loaded) return;
-    // If service already has provincias, use them — but only when static fallback allowed
-    const existing = geographicService.getProvincias();
-    if (allowStaticFallback && existing && existing.length > 0) {
-      setOptions(existing.map(p => ({ value: p.id, label: p.nombre })));
-      setLoaded(true);
-      return;
-    }
+    useEffect(() => {
+        let mounted = true;
 
-    setLoading(true);
-    try {
-      if (apiUrl) {
-        await geographicService.initializeFromAPI(apiUrl);
-      } else {
-        // fallback to static config if no apiUrl
-        geographicService.initializeStatic(DEFAULT_GEOGRAPHIC_CONFIG);
-      }
-      const provincias = geographicService.getProvincias() || [];
-      setOptions(provincias.map(p => ({ value: p.id, label: p.nombre })));
-    } catch (err) {
-      console.error('ProvinciaSelect: error cargando provincias:', err);
-        if (allowStaticFallback) {
-        try {
-          geographicService.initializeStatic(DEFAULT_GEOGRAPHIC_CONFIG);
-          const provincias = geographicService.getProvincias() || [];
-          setOptions(provincias.map(p => ({ value: p.id, label: p.nombre })));
-        } catch (e) {
-          console.error('ProvinciaSelect: fallback falló:', e);
-          setOptions([]);
-        }
-      } else {
-        // Static fallback disabled — leave options empty
-        setOptions([]);
-      }
-    } finally {
-      setLoading(false);
-      setLoaded(true);
-    }
-  }, [apiUrl, loaded]);
+        const loadData = async () => {
+            // Verificar si ya están en memoria para evitar parpadeo de "Cargando..."
+            const enMemoria = geographicService.getProvincias();
+            if (enMemoria && enMemoria.length > 0) {
+                setOptions(enMemoria.map(p => ({ value: p.id, label: p.nombre })));
+                return;
+            }
 
-  return (
-    <SelectField
-      label={label}
-      name={name}
-      value={value}
-      onChange={onChange}
-      options={options}
-      placeholder={placeholder}
-      className={className}
-      required={required}
-      error={error}
-      loading={loading}
-      onFocus={() => { fetchIfNeeded(); }}
-    />
-  );
+            // Si no están, llamamos al loadProvincias (que chequea localStorage o hace fetch)
+            setLoading(true);
+            try {
+                const provincias = await geographicService.loadProvincias(apiUrl);
+                if (mounted) {
+                    setOptions(provincias.map(p => ({ value: p.id, label: p.nombre })));
+                }
+            } catch (error) {
+                console.error('Error cargando combo provincias', error);
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        };
+
+        loadData();
+
+        return () => { mounted = false; };
+    }, [apiUrl]);
+
+    return (
+        <SelectField
+            label={label}
+            name={name}
+            value={value}
+            onChange={onChange}
+            options={options}
+            placeholder={placeholder}
+            className={className}
+            required={required}
+            error={error}
+            loading={loading}
+        />
+    );
 };
 
 export default ProvinciaSelect;

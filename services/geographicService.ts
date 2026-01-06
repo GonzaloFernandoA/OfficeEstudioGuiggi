@@ -9,7 +9,10 @@ class GeographicService {
   private config: GeographicConfig = {
     provincias: [],
     localidades: [],
-  };
+    };
+
+  // Cache de la promesa para evitar múltiples llamadas simultáneas
+  private initializationPromise: Promise<void> | null = null;
 
   /**
    * Inicializa con configuración estática
@@ -17,7 +20,68 @@ class GeographicService {
   initializeStatic(config: GeographicConfig): void {
     this.config = config;
     console.log('✅ Configuración geográfica cargada (estática)');
-  }
+    }
+
+    async loadProvincias(apiUrl: string): Promise<Provincia[]> {
+        // 1. Si ya tenemos datos en memoria (RAM), devolverlos
+        if (this.config.provincias.length > 0) {
+            return this.config.provincias;
+        }
+
+        // 2. Si ya hay una carga en proceso, devolver esa promesa
+        if (this.initializationPromise) {
+            await this.initializationPromise;
+            return this.config.provincias;
+        }
+
+        // 3. Iniciar proceso de carga
+        this.initializationPromise = (async () => {
+            try {
+                // A. Revisar LocalStorage
+                const localData = localStorage.getItem('provincias_cache');
+
+                if (localData) {
+                    console.log('📦 Cargando provincias desde LocalStorage');
+                    this.config.provincias = JSON.parse(localData);
+                } else {
+                    // B. Si no hay cache, ir a la API
+                    console.log('🌐 Fetching provincias desde API...');
+                    const response = await fetch(apiUrl);
+                    if (!response.ok) throw new Error(`Error ${response.status}`);
+
+                    const data = await response.json();
+
+                    // Mapeo seguro de la estructura de tu API (records -> fields -> id/name)
+                    let provinciasMapeadas: Provincia[] = [];
+
+                    if (data && Array.isArray(data.records)) {
+                        provinciasMapeadas = data.records.map((r: any) => {
+                            // Lógica para obtener nombre e id robusta
+                            const nombre = r.fields?.nombre || r.fields?.Name || r.name || 'Sin Nombre';
+                            const id = r.id || String(nombre).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                            return { id, nombre };
+                        });
+                    } else if (Array.isArray(data)) {
+                        provinciasMapeadas = data;
+                    }
+
+                    // Guardar en RAM
+                    this.config.provincias = provinciasMapeadas;
+
+                    // Guardar en LocalStorage para el futuro (F5)
+                    localStorage.setItem('provincias_cache', JSON.stringify(provinciasMapeadas));
+                }
+            } catch (error) {
+                console.error('❌ Error en loadProvincias:', error);
+                throw error;
+            } finally {
+                this.initializationPromise = null; // Liberar promesa
+            }
+        })();
+
+        await this.initializationPromise;
+        return this.config.provincias;
+    }
 
   /**
    * Carga dinámicamente desde una API
@@ -133,7 +197,8 @@ class GeographicService {
    */
   getConfig(): GeographicConfig {
     return this.config;
-  }
+    }
+
 }
 
 // Exportar instancia singleton

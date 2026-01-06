@@ -30,6 +30,10 @@ import {
     TIPO_LESION_OPTIONS,
 } from './constants';
 
+import { geographicService } from './services/geographicService';
+
+const PROVINCIAS_API_URL = 'https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/provincias';
+
 const initialLesionesState: Lesiones = {
     centroMedico1: '', centroMedico2: '', modoTraslado: '', fueOperado: '', estuvoInternado: '',
     zonasAfectadas: [], otrasZonasAfectadas: '', zonasRadiografias: [], otrasZonasRadiografias: '', tipoLesion: []
@@ -271,6 +275,12 @@ function App() {
     useEffect(() => {
         localStorage.setItem('casos', JSON.stringify(cases));
     }, [cases]);
+
+    useEffect(() => {
+        geographicService.loadProvincias(PROVINCIAS_API_URL)
+            .then(() => console.log('✅ Provincias listas para usar'))
+            .catch(err => console.error('⚠️ Falló precarga de provincias', err));
+    }, []);
 
     const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
