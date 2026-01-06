@@ -21,6 +21,7 @@ const SelectField: React.FC<SelectFieldProps> = ({
   value,
   onChange,
   onBlur,
+  onFocus,
   options,
   placeholder = 'Seleccione...',
   className = '',
@@ -35,8 +36,16 @@ const SelectField: React.FC<SelectFieldProps> = ({
     if (onFocus) onFocus(e);
   };
 
-  const handleMouseDown = () => {
+  const handleMouseDown = (e: React.MouseEvent<HTMLSelectElement>) => {
     setInteracted(true);
+    if (onFocus) {
+      try {
+        // Call onFocus so consumers can start loading options on mouse down
+        onFocus(e as unknown as React.FocusEvent<HTMLSelectElement>);
+      } catch (err) {
+        // ignore
+      }
+    }
   };
   return (
     <div className={className}>

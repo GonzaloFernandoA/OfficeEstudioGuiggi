@@ -1,11 +1,8 @@
 ﻿import React, { useState, useEffect } from 'react';
 import Section from './Section';
 import InputField from './InputField';
-import SelectField from './SelectField';
+import ProvinciaSelect from './ProvinciaSelect';
 import { apiClient } from '../services/apiClient';
-import { geographicService } from '../services/geographicService';
-import { DEFAULT_GEOGRAPHIC_CONFIG } from '../config/geographicConfig';
-import type { Provincia } from '../types';
 
 interface Siniestro {
     fecha: string;
@@ -57,40 +54,13 @@ const Ingreso: React.FC = () => {
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-    const [provincias, setProvincias] = useState<Provincia[]>([]);
-    const [provinciasLoading, setProvinciasLoading] = useState<boolean>(true);
+    
     // Estado para mostrar el convenio generado en modal
     const [convenioText, setConvenioText] = useState<string | null>(null);
     const [showConvenioModal, setShowConvenioModal] = useState(false);
 
 
-    useEffect(() => {
-        let mounted = true;
-
-        (async () => {
-            setProvinciasLoading(true);
-            try {
-                await geographicService.initializeFromAPI("https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/provincias");
-                if (!mounted) return;
-                const provinciasList = geographicService.getProvincias() || [];
-                setProvincias(provinciasList);
-            } catch (err) {
-                console.error('Error cargando provincias desde API:', err);
-                // Intentar fallback a configuración estática
-                try {
-                    geographicService.initializeStatic(DEFAULT_GEOGRAPHIC_CONFIG);
-                    if (!mounted) return;
-                    setProvincias(geographicService.getProvincias() || []);
-                } catch (e) {
-                    console.error('Fallback a configuración estática falló:', e);
-                }
-            } finally {
-                if (mounted) setProvinciasLoading(false);
-            }
-        })();
-
-        return () => { mounted = false; };
-    }, []);
+    
 
     // Validación
     const validateForm = (): boolean => {
@@ -364,8 +334,7 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
         }
     };
 
-    // Convertir provincias a opciones para SelectField
-    const provinciasOptions = provincias.map(p => p.nombre);
+    
 
     return (
         <form onSubmit={handleSubmit} noValidate className="space-y-6">
@@ -426,13 +395,10 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                         error={errors['siniestro.localidad']}
                         required
                     />
-                    <SelectField
-                        label="Provincia"
+                    <ProvinciaSelect
                         name="provincia"
                         value={formData.siniestro.provincia}
                         onChange={handleSiniestroChange}
-                        options={provinciasOptions}
-                        loading={provinciasLoading}
                         error={errors['siniestro.provincia']}
                         required
                     />
@@ -518,13 +484,10 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                                 error={errors[`damnificados.${index}.localidad`]}
                                 required
                             />
-                            <SelectField
-                                label="Provincia"
+                            <ProvinciaSelect
                                 name="provincia"
                                 value={damnificado.provincia}
                                 onChange={(e) => handleDamnificadoChange(index, e)}
-                                options={provinciasOptions}
-                                loading={provinciasLoading}
                                 error={errors[`damnificados.${index}.provincia`]}
                                 required
                             />
