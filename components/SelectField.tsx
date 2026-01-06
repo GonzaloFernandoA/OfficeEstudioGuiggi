@@ -1,5 +1,6 @@
 import React from 'react';
 
+interface OptionLike { value: string; label: string }
 interface SelectFieldProps {
   label: string;
   name: string;
@@ -7,7 +8,7 @@ interface SelectFieldProps {
   onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   onBlur?: (e: React.FocusEvent<HTMLSelectElement>) => void;
   onFocus?: (e: React.FocusEvent<HTMLSelectElement>) => void;
-  options: string[];
+  options: Array<string | OptionLike>;
   placeholder?: string;
   className?: string;
   required?: boolean;
@@ -72,9 +73,13 @@ const SelectField: React.FC<SelectFieldProps> = ({
         ) : (
           <>
             <option value="" disabled>{placeholder}</option>
-            {options.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
+            {options.map((option) => {
+              const val = typeof option === 'string' ? option : option.value;
+              const labelText = typeof option === 'string' ? option : option.label;
+              return (
+                <option key={val} value={val}>{labelText}</option>
+              );
+            })}
           </>
         )}
       </select>

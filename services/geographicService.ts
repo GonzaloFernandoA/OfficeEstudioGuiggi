@@ -30,8 +30,8 @@ class GeographicService {
 
       if (data && Array.isArray(data.records)) {
         const provincias = data.records.map((r: any) => {
-          const name = (r.fields && (r.fields.Name || r.fields.name)) || r.fields || r.name || r.id || '';
-          const id = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || String(r.id || '');
+          const name = (r.fields && (r.fields.Name || r.fields.name)) || r.name || String(r.id || '');
+          const id = String(r.id || String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
           return { id, nombre: String(name) } as any;
         });
         this.config = { provincias, localidades: [] };

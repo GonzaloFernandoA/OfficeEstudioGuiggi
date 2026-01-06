@@ -2,6 +2,7 @@
 import Section from './Section';
 import InputField from './InputField';
 import ProvinciaSelect from './ProvinciaSelect';
+import { geographicService } from '../services/geographicService';
 import { apiClient } from '../services/apiClient';
 
 interface Siniestro {
@@ -9,7 +10,7 @@ interface Siniestro {
     hora: string;
     calle: string;
     localidad: string;
-    provincia: string;
+    provincia: string; // ahora almacena el id de la provincia
     descripcion: string;
 }
 
@@ -19,7 +20,7 @@ interface Damnificado {
     dni: string;
     calle: string;
     localidad: string;
-    provincia: string;
+    provincia: string; // id de provincia
 }
 
 interface IngresoFormData {
@@ -244,17 +245,21 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
             ? rawFechaHoy.toLocaleUpperCase('es-AR')
             : rawFechaHoy.toUpperCase();
 
+        // Resolver nombres de provincia desde los ids almacenados
+        const damnificadoProvinciaNombre = geographicService.getProvinciaById(d.provincia || '')?.nombre || d.provincia || '';
+        const siniestroProvinciaNombre = geographicService.getProvinciaById(formData.siniestro.provincia || '')?.nombre || formData.siniestro.provincia || '';
+
         const values: Record<string, string> = {
             '_Apellido_': d.apellido || '',
             '_Nombre_': d.nombre || '',
             '_dni_': d.dni || '',
             '_domicilio_': d.calle || '',
             '_localidad_': d.localidad || '',
-            '_provincia_': d.provincia || '',
+            '_provincia_': damnificadoProvinciaNombre,
             '_fechaAccidente_': formatDateInputToDDMMYYYY(formData.siniestro.fecha || ''),
             '_domicilioAccidente_': formData.siniestro.calle || '',
             '_localidadAccidente_': formData.siniestro.localidad || '',
-            '_provinciaAccidente_': formData.siniestro.provincia || '',
+            '_provinciaAccidente_': siniestroProvinciaNombre,
             '_fechaHoy_': fechaHoyFormatted,
         };
 
@@ -280,32 +285,51 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
 
         try {
             // Preparar el JSON para enviar
-            const payload = {
-                tabla: 'siniestro',
-                siniestro: {
-                    fecha: formData.siniestro.fecha.trim(),
-                    hora: formData.siniestro.hora.trim(),
-                    calle: formData.siniestro.calle.trim(),
-                    localidad: formData.siniestro.localidad.trim(),
-                    provincia: formData.siniestro.provincia.trim(),
-                    descripcion: formData.siniestro.descripcion.trim(),
-                },
-                damnificados: formData.damnificados.map(d => ({
-                    nombre: d.nombre.trim(),
-                    apellido: d.apellido.trim(),
-                    dni: d.dni.trim(),
-                    calle: d.calle.trim(),
-                    localidad: d.localidad.trim(),
-                    provincia: d.provincia.trim(),
-                })),
-            };
+                const resolveProvinciaId = (val: string) => {
+                    const v = (val || '').trim();
+                    if (!v) return '';
+                    // If it's already an id
+                    if (geographicService.getProvinciaById(v)) return v;
+                    // Try to find by nombre (case-insensitive)
+                    const found = (geographicService.getProvincias() || []).find(p => String(p.nombre || '').toLowerCase() === v.toLowerCase());
+                    if (found) return found.id;
+                    // As fallback, also try slugifying the name to match API behavior
+                    const slug = String(v).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                    if (geographicService.getProvinciaById(slug)) return slug;
+                    return v; // leave as-is if not resolvable
+                };
+
+                const payload = {
+                    tabla: 'siniestro',
+                    siniestro: {
+                        fecha: formData.siniestro.fecha.trim(),
+                        hora: formData.siniestro.hora.trim(),
+                        calle: formData.siniestro.calle.trim(),
+                        localidad: formData.siniestro.localidad.trim(),
+                        provincia: resolveProvinciaId(formData.siniestro.provincia),
+                        descripcion: formData.siniestro.descripcion.trim(),
+                    },
+                    damnificados: formData.damnificados.map(d => ({
+                        nombre: d.nombre.trim(),
+                        apellido: d.apellido.trim(),
+                        dni: d.dni.trim(),
+                        calle: d.calle.trim(),
+                        localidad: d.localidad.trim(),
+                        provincia: resolveProvinciaId(d.provincia),
+                    })),
+                };
 
             //console.log('📤 Enviando payload:', payload);
 
-            console.log(
-                'JSON enviado:',
-                JSON.stringify(payload, null, 2)
-            )
+            console.log('JSON enviado:', JSON.stringify(payload, null, 2));
+            // Para depuración, mostrar resolución de nombres a ids cuando haya diferencias
+            try {
+                const originalProv = formData.siniestro.provincia;
+                const resolvedProv = payload.siniestro.provincia;
+                if (originalProv && originalProv !== resolvedProv) {
+                    console.log(`Provincia siniestro resuelta: "${originalProv}" -> "${resolvedProv}"`);
+                }
+            } catch (e) { /* ignore */ }
 
 
             // Enviar JSON al backend via apiClient

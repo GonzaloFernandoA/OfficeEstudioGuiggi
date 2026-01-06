@@ -30,7 +30,7 @@ const ProvinciaSelect: React.FC<ProvinciaSelectProps> = ({
   apiUrl = DEFAULT_API,
   allowStaticFallback = true,   //Con False se puede deshabilitar el fallback estático
 }) => {
-  const [options, setOptions] = useState<string[]>([]);
+  const [options, setOptions] = useState<Array<string | { value: string; label: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -39,7 +39,7 @@ const ProvinciaSelect: React.FC<ProvinciaSelectProps> = ({
     // If service already has provincias, use them — but only when static fallback allowed
     const existing = geographicService.getProvincias();
     if (allowStaticFallback && existing && existing.length > 0) {
-      setOptions(existing.map(p => p.nombre));
+      setOptions(existing.map(p => ({ value: p.id, label: p.nombre })));
       setLoaded(true);
       return;
     }
@@ -53,14 +53,14 @@ const ProvinciaSelect: React.FC<ProvinciaSelectProps> = ({
         geographicService.initializeStatic(DEFAULT_GEOGRAPHIC_CONFIG);
       }
       const provincias = geographicService.getProvincias() || [];
-      setOptions(provincias.map(p => p.nombre));
+      setOptions(provincias.map(p => ({ value: p.id, label: p.nombre })));
     } catch (err) {
       console.error('ProvinciaSelect: error cargando provincias:', err);
-      if (allowStaticFallback) {
+        if (allowStaticFallback) {
         try {
           geographicService.initializeStatic(DEFAULT_GEOGRAPHIC_CONFIG);
           const provincias = geographicService.getProvincias() || [];
-          setOptions(provincias.map(p => p.nombre));
+          setOptions(provincias.map(p => ({ value: p.id, label: p.nombre })));
         } catch (e) {
           console.error('ProvinciaSelect: fallback falló:', e);
           setOptions([]);
