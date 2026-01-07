@@ -61,9 +61,6 @@ const Ingreso: React.FC = () => {
     const [convenioText, setConvenioText] = useState<string | null>(null);
     const [showConvenioModal, setShowConvenioModal] = useState(false);
 
-
-    
-
     // Validación
     const validateForm = (): boolean => {
         const newErrors: Record<string, string> = {};
@@ -203,6 +200,11 @@ const Ingreso: React.FC = () => {
         return dateStr; // si no se puede formatear, devolver original
     };
 
+    const toRecordIdArray = (id: string) => {
+        const v = (id || '').trim();
+        return v ? [v] : [];
+    };
+
     // Función que abre una nueva ventana con el convenio listo para imprimir
     const handlePrintConvenio = (text: string) => {
         const w = window.open('', '_blank');
@@ -305,7 +307,7 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                 hora: formData.siniestro.hora.trim(),
                 calle: formData.siniestro.calle.trim(),
                 localidad: formData.siniestro.localidad.trim(),
-                provincia: resolveProvinciaId(formData.siniestro.provincia),
+                provincia: toRecordIdArray(resolveProvinciaId(formData.siniestro.provincia)), // 👈 array
                 descripcion: formData.siniestro.descripcion.trim(),
             };
 
@@ -315,7 +317,7 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                 dni: d.dni.trim(),
                 calle: d.calle.trim(),
                 localidad: d.localidad.trim(),
-                provincia: resolveProvinciaId(d.provincia),
+                provincia: toRecordIdArray(resolveProvinciaId(d.provincia)), // 👈 array
             }));
 
             const payload = {
