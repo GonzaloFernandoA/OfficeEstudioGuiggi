@@ -22,6 +22,7 @@ interface AddressRowProps {
   provinciaRequired?: boolean;
 
   className?: string;
+  labelSuffix?: string;
 }
 
 const AddressRow: React.FC<AddressRowProps> = ({
@@ -44,6 +45,7 @@ const AddressRow: React.FC<AddressRowProps> = ({
   provinciaRequired = false,
 
   className = '',
+  labelSuffix = '',
 }) => {
   // Forzar 3 columnas y ocupar toda la línea (igual que el layout anterior)
   const gridClass = 'md:col-span-3 grid grid-cols-3 gap-4';
@@ -51,7 +53,7 @@ const AddressRow: React.FC<AddressRowProps> = ({
   return (
     <div className={`${gridClass} ${className}`.trim()}>
       <InputField
-        label="Calle"
+        label={`Calle${labelSuffix}`}
         name={calleName}
         value={calleValue}
         onChange={onCalleChange}
@@ -60,7 +62,7 @@ const AddressRow: React.FC<AddressRowProps> = ({
       />
 
       <InputField
-        label="Localidad"
+        label={`Localidad${labelSuffix}`}
         name={localidadName}
         value={localidadValue}
         onChange={onLocalidadChange}
@@ -74,6 +76,7 @@ const AddressRow: React.FC<AddressRowProps> = ({
         onChange={onProvinciaChange}
         error={provinciaError}
         required={provinciaRequired}
+        label={`Provincia${labelSuffix}`}
       />
     </div>
   );
