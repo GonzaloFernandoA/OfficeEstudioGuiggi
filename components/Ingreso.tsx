@@ -2,6 +2,7 @@
 import Section from './Section';
 import InputField from './InputField';
 import ProvinciaSelect from './ProvinciaSelect';
+import AddressRow from './AddressRow';
 import { geographicService } from '../services/geographicService';
 import { apiClient } from '../services/apiClient';
 
@@ -402,31 +403,19 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                     />
                 </div>
 
-                <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <InputField
-                        label="Calle"
-                        name="calle"
-                        value={formData.siniestro.calle}
-                        onChange={handleSiniestroChange}
-                        error={errors['siniestro.calle']}
-                        required
-                    />
-                    <InputField
-                        label="Localidad"
-                        name="localidad"
-                        value={formData.siniestro.localidad}
-                        onChange={handleSiniestroChange}
-                        error={errors['siniestro.localidad']}
-                        required
-                    />
-                    <ProvinciaSelect
-                        name="provincia"
-                        value={formData.siniestro.provincia}
-                        onChange={handleSiniestroChange}
-                        error={errors['siniestro.provincia']}
-                        required
-                    />
-                </div>
+                <AddressRow
+                    calleValue={formData.siniestro.calle}
+                    onCalleChange={handleSiniestroChange}
+                    calleError={errors['siniestro.calle']}
+
+                    localidadValue={formData.siniestro.localidad}
+                    onLocalidadChange={handleSiniestroChange}
+                    localidadError={errors['siniestro.localidad']}
+
+                    provinciaValue={formData.siniestro.provincia}
+                    onProvinciaChange={handleSiniestroChange}
+                    provinciaError={errors['siniestro.provincia']}
+                />
 
                 <InputField
                     label="Descripción"
@@ -492,28 +481,18 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                                 error={errors[`damnificados.${index}.dni`]}
                                 required
                             />
-                            <InputField
-                                label="Calle"
-                                name="calle"
-                                value={damnificado.calle}
-                                onChange={(e) => handleDamnificadoChange(index, e)}
-                                error={errors[`damnificados.${index}.calle`]}
-                                required
-                            />
-                            <InputField
-                                label="Localidad"
-                                name="localidad"
-                                value={damnificado.localidad}
-                                onChange={(e) => handleDamnificadoChange(index, e)}
-                                error={errors[`damnificados.${index}.localidad`]}
-                                required
-                            />
-                            <ProvinciaSelect
-                                name="provincia"
-                                value={damnificado.provincia}
-                                onChange={(e) => handleDamnificadoChange(index, e)}
-                                error={errors[`damnificados.${index}.provincia`]}
-                                required
+                            <AddressRow
+                                calleValue={damnificado.calle}
+                                onCalleChange={(e) => handleDamnificadoChange(index, e)}
+                                calleError={errors[`damnificados.${index}.calle`]}
+
+                                localidadValue={damnificado.localidad}
+                                onLocalidadChange={(e) => handleDamnificadoChange(index, e)}
+                                localidadError={errors[`damnificados.${index}.localidad`]}
+
+                                provinciaValue={damnificado.provincia}
+                                onProvinciaChange={(e) => handleDamnificadoChange(index, e)}
+                                provinciaError={errors[`damnificados.${index}.provincia`]}
                             />
                         </div>
                     </div>
