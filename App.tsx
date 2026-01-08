@@ -9,6 +9,7 @@ import Dashboard from './components/Dashboard';
 import Contactos from './components/Contactos';
 import Ingreso from './components/Ingreso';
 import VersionBadge from './components/VersionBadge';
+import AddressRow from './components/AddressRow';
 import {
     ESTADO_CIVIL_OPTIONS,
     SI_NO_OPTIONS,
@@ -31,6 +32,8 @@ import {
 } from './constants';
 
 import { geographicService } from './services/geographicService';
+import ProvinciaSelect from './components/ProvinciaSelect';
+
 
 const PROVINCIAS_API_URL = 'https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/provincias';
 
@@ -183,9 +186,22 @@ const DemandadosSectionComponent: React.FC<{
                 <InputField label="Nombre y Apellido" name={`${basePath}.conductor.nombreApellido`} value={data.conductor.nombreApellido} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.conductor.nombreApellido`)} />
                 <InputField label="D.N.I." name={`${basePath}.conductor.dni`} value={data.conductor.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.conductor.dni`)} />
                 <InputField label="Teléfono" name={`${basePath}.conductor.telefono`} type="tel" value={data.conductor.telefono} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.conductor.telefono`)} />
-                <InputField label="Domicilio (Calle y altura)" name={`${basePath}.conductor.domicilio`} value={data.conductor.domicilio} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.conductor.domicilio`)} />
-                <InputField label="Localidad" name={`${basePath}.conductor.localidad`} value={data.conductor.localidad} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.conductor.localidad`)} />
-                <InputField label="Partido" name={`${basePath}.conductor.partido`} value={data.conductor.partido} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.conductor.partido`)} />
+                <AddressRow
+                    calleName={`${basePath}.conductor.domicilio`}
+                    calleValue={data.conductor.domicilio || ''}
+                    onCalleChange={handleInputChange}
+                    calleError={getNestedValue(errors, `${basePath}.conductor.domicilio`)}
+
+                    localidadName={`${basePath}.conductor.localidad`}
+                    localidadValue={data.conductor.localidad || ''}
+                    onLocalidadChange={handleInputChange}
+                    localidadError={getNestedValue(errors, `${basePath}.conductor.localidad`)}
+
+                    provinciaName={`${basePath}.conductor.provincia`}
+                    provinciaValue={data.conductor.provincia || ''}
+                    onProvinciaChange={handleInputChange}
+                    provinciaError={getNestedValue(errors, `${basePath}.conductor.provincia`)}
+                />
                 <SelectField label="Fuente del Dato" name={`${basePath}.conductor.fuenteDato`} value={data.conductor.fuenteDato} onChange={handleInputChange} onBlur={handleBlur} options={FUENTE_DATO_OPTIONS} error={getNestedValue(errors, `${basePath}.conductor.fuenteDato`)} />
                 {data.conductor.fuenteDato === 'Otro' && (
                     <InputField label="Aclarar Fuente" name={`${basePath}.conductor.fuenteDatoOtro`} value={data.conductor.fuenteDatoOtro} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.conductor.fuenteDatoOtro`)} />
@@ -196,9 +212,22 @@ const DemandadosSectionComponent: React.FC<{
                 <InputField label="Nombre y Apellido" name={`${basePath}.titular.nombreApellido`} value={data.titular.nombreApellido} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.titular.nombreApellido`)} />
                 <InputField label="D.N.I." name={`${basePath}.titular.dni`} value={data.titular.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.titular.dni`)} />
                 <InputField label="Teléfono" name={`${basePath}.titular.telefono`} type="tel" value={data.titular.telefono} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.titular.telefono`)} />
-                <InputField label="Domicilio (Calle y altura)" name={`${basePath}.titular.domicilio`} value={data.titular.domicilio} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.titular.domicilio`)} />
-                <InputField label="Localidad" name={`${basePath}.titular.localidad`} value={data.titular.localidad} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.titular.localidad`)} />
-                <InputField label="Partido" name={`${basePath}.titular.partido`} value={data.titular.partido} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.titular.partido`)} />
+                <AddressRow
+                    calleName={`${basePath}.conductor.domicilio`}
+                    calleValue={data.conductor.domicilio || ''}
+                    onCalleChange={handleInputChange}
+                    calleError={getNestedValue(errors, `${basePath}.conductor.domicilio`)}
+
+                    localidadName={`${basePath}.conductor.localidad`}
+                    localidadValue={data.conductor.localidad || ''}
+                    onLocalidadChange={handleInputChange}
+                    localidadError={getNestedValue(errors, `${basePath}.conductor.localidad`)}
+
+                    provinciaName={`${basePath}.conductor.provincia`}
+                    provinciaValue={data.conductor.provincia || ''}
+                    onProvinciaChange={handleInputChange}
+                    provinciaError={getNestedValue(errors, `${basePath}.conductor.provincia`)}
+                />
                 <SelectField label="Fuente del Dato" name={`${basePath}.titular.fuenteDato`} value={data.titular.fuenteDato} onChange={handleInputChange} onBlur={handleBlur} options={FUENTE_DATO_OPTIONS} error={getNestedValue(errors, `${basePath}.titular.fuenteDato`)} />
                 {data.titular.fuenteDato === 'Otro' && (
                     <InputField label="Aclarar Fuente" name={`${basePath}.titular.fuenteDatoOtro`} value={data.titular.fuenteDatoOtro} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.titular.fuenteDatoOtro`)} />
@@ -209,9 +238,22 @@ const DemandadosSectionComponent: React.FC<{
                 <InputField label="Nombre y Apellido" name={`${basePath}.asegurado.nombreApellido`} value={data.asegurado.nombreApellido} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.asegurado.nombreApellido`)} />
                 <InputField label="D.N.I." name={`${basePath}.asegurado.dni`} value={data.asegurado.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.asegurado.dni`)} />
                 <InputField label="Teléfono" name={`${basePath}.asegurado.telefono`} type="tel" value={data.asegurado.telefono} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.asegurado.telefono`)} />
-                <InputField label="Domicilio (Calle y altura)" name={`${basePath}.asegurado.domicilio`} value={data.asegurado.domicilio} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.asegurado.domicilio`)} />
-                <InputField label="Localidad" name={`${basePath}.asegurado.localidad`} value={data.asegurado.localidad} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.asegurado.localidad`)} />
-                <InputField label="Partido" name={`${basePath}.asegurado.partido`} value={data.asegurado.partido} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.asegurado.partido`)} />
+                <AddressRow
+                    calleName={`${basePath}.conductor.domicilio`}
+                    calleValue={data.conductor.domicilio || ''}
+                    onCalleChange={handleInputChange}
+                    calleError={getNestedValue(errors, `${basePath}.conductor.domicilio`)}
+
+                    localidadName={`${basePath}.conductor.localidad`}
+                    localidadValue={data.conductor.localidad || ''}
+                    onLocalidadChange={handleInputChange}
+                    localidadError={getNestedValue(errors, `${basePath}.conductor.localidad`)}
+
+                    provinciaName={`${basePath}.conductor.provincia`}
+                    provinciaValue={data.conductor.provincia || ''}
+                    onProvinciaChange={handleInputChange}
+                    provinciaError={getNestedValue(errors, `${basePath}.conductor.provincia`)}
+                />
                 <SelectField label="Fuente del Dato" name={`${basePath}.asegurado.fuenteDato`} value={data.asegurado.fuenteDato} onChange={handleInputChange} onBlur={handleBlur} options={FUENTE_DATO_OPTIONS} error={getNestedValue(errors, `${basePath}.asegurado.fuenteDato`)} />
                 {data.asegurado.fuenteDato === 'Otro' && (
                     <InputField label="Aclarar Fuente" name={`${basePath}.asegurado.fuenteDatoOtro`} value={data.asegurado.fuenteDatoOtro} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.asegurado.fuenteDatoOtro`)} />
@@ -534,8 +576,23 @@ function App() {
                             <InputField label="Nombre del Padre" name="cliente.nombrePadre" value={formData.cliente.nombrePadre} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.nombrePadre')} />
                             <InputField label="Nombre de la Madre" name="cliente.nombreMadre" value={formData.cliente.nombreMadre} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.nombreMadre')} />
                             <InputField label="Nombre del Cónyuge" name="cliente.nombreConyuge" value={formData.cliente.nombreConyuge} onChange={handleInputChange} onBlur={handleBlur} helpText="Completar si es casado/a" error={getNestedValue(errors, 'cliente.nombreConyuge')} />
-                            <InputField label="Domicilio" name="cliente.domicilio" value={formData.cliente.domicilio} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.domicilio')} required />
-                            <InputField label="Localidad" name="cliente.localidad" value={formData.cliente.localidad} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.localidad')} required />
+                            <AddressRow
+                                calleName="cliente.domicilio"
+                                calleValue={formData.cliente.domicilio || ''}
+                                onCalleChange={handleInputChange}
+                                calleError={getNestedValue(errors, 'cliente.domicilio')}
+
+                                localidadName="cliente.localidad"
+                                localidadValue={formData.cliente.localidad || ''}
+                                onLocalidadChange={handleInputChange}
+                                localidadError={getNestedValue(errors, 'cliente.localidad')}
+
+                                provinciaName="cliente.provincia"
+                                provinciaValue={formData.cliente.provincia || ''}
+                                onProvinciaChange={handleInputChange}
+                                provinciaError={getNestedValue(errors, 'cliente.provincia')}
+                                className="md:col-span-3"
+                            />
                             <InputField label="Teléfono" name="cliente.telefono" type="tel" value={formData.cliente.telefono} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.telefono')} required />
                             
                             <InputField label="Ocupación" name="cliente.ocupacion" value={formData.cliente.ocupacion} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.ocupacion')} />
@@ -599,8 +656,24 @@ function App() {
                         <InputField label="Nombre del Padre" name="titularCliente.nombrePadre" value={formData.titularCliente.nombrePadre} onChange={handleInputChange} />
                         <InputField label="Nombre de la Madre" name="titularCliente.nombreMadre" value={formData.titularCliente.nombreMadre} onChange={handleInputChange} />
                         <InputField label="Nombre del Cónyuge" name="titularCliente.nombreConyuge" value={formData.titularCliente.nombreConyuge} onChange={handleInputChange} helpText="Completar si es casado/a" />
-                        <InputField label="Domicilio del Titular" name="titularCliente.domicilio" value={formData.titularCliente.domicilio} onChange={handleInputChange} />
-                        <InputField label="Localidad del Titular" name="titularCliente.localidad" value={formData.titularCliente.localidad} onChange={handleInputChange} />
+                        <AddressRow
+                            calleName="titularCliente.domicilio"
+                            calleValue={formData.titularCliente.domicilio || ''}
+                            onCalleChange={handleInputChange}
+                            calleError={getNestedValue(errors, 'titularCliente.domicilio')}
+
+                            localidadName="titularCliente.localidad"
+                            localidadValue={formData.titularCliente.localidad || ''}
+                            onLocalidadChange={handleInputChange}
+                            localidadError={getNestedValue(errors, 'titularCliente.localidad')}
+
+                            provinciaName="titularCliente.provincia"
+                            provinciaValue={formData.titularCliente.provincia || ''}
+                            onProvinciaChange={handleInputChange}
+                            provinciaError={getNestedValue(errors, 'titularCliente.provincia')}
+                            className="md:col-span-3"
+                            labelSuffix=" Del Titular"
+                        />
                     </Section>
                     
                     {/* Co-Actor (Opcional) */}
@@ -612,8 +685,23 @@ function App() {
                         <InputField label="Nombre del Padre" name="coActor1.nombrePadre" value={formData.coActor1.nombrePadre} onChange={handleInputChange} />
                         <InputField label="Nombre de la Madre" name="coActor1.nombreMadre" value={formData.coActor1.nombreMadre} onChange={handleInputChange} />
                         <InputField label="Nombre del Cónyuge" name="coActor1.nombreConyuge" value={formData.coActor1.nombreConyuge} onChange={handleInputChange} helpText="Completar si es casado/a" />
-                        <InputField label="Domicilio" name="coActor1.domicilio" value={formData.coActor1.domicilio} onChange={handleInputChange} />
-                        <InputField label="Localidad" name="coActor1.localidad" value={formData.coActor1.localidad} onChange={handleInputChange} />
+                        <AddressRow
+                            calleName="coActor1.domicilio"
+                            calleValue={formData.coActor1.domicilio || ''}
+                            onCalleChange={handleInputChange}
+                            calleError={getNestedValue(errors, 'coActor1.domicilio')}
+
+                            localidadName="coActor1.localidad"
+                            localidadValue={formData.coActor1.localidad || ''}
+                            onLocalidadChange={handleInputChange}
+                            localidadError={getNestedValue(errors, 'coActor1.localidad')}
+
+                            provinciaName="coActor1.provincia"
+                            provinciaValue={formData.coActor1.provincia || ''}
+                            onProvinciaChange={handleInputChange}
+                            provinciaError={getNestedValue(errors, 'coActor1.provincia')}
+                            className="md:col-span-3"
+                        />
                         <InputField label="Teléfono" name="coActor1.telefono" type="tel" value={formData.coActor1.telefono} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.telefono')} />
 
                         <InputField label="Ocupación" name="coActor1.ocupacion" value={formData.coActor1.ocupacion} onChange={handleInputChange} />
@@ -658,8 +746,23 @@ function App() {
                         <InputField label="Hora Aproximada" name="siniestro.horaHecho" type="time" value={formData.siniestro.horaHecho} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.horaHecho')} required />
                         <InputField label="Lugar del Hecho" name="siniestro.lugarHecho" value={formData.siniestro.lugarHecho} onChange={handleInputChange} onBlur={handleBlur} helpText="Ej: Av. Rivadavia y Av. Callao" error={getNestedValue(errors, 'siniestro.lugarHecho')} required />
                         <InputField label="Calles" name="siniestro.calles" value={formData.siniestro.calles} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.calles')} />
-                        <InputField label="Localidad" name="siniestro.localidad" value={formData.siniestro.localidad} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.localidad')} />
-                        <InputField label="Partido" name="siniestro.partido" value={formData.siniestro.partido} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.partido')} />
+                        <AddressRow
+                            calleName="siniestro.calles"
+                            calleValue={formData.siniestro.calles || ''}
+                            onCalleChange={handleInputChange}
+                            calleError={getNestedValue(errors, 'siniestro.calles')}
+
+                            localidadName="siniestro.localidad"
+                            localidadValue={formData.siniestro.localidad || ''}
+                            onLocalidadChange={handleInputChange}
+                            localidadError={getNestedValue(errors, 'siniestro.localidad')}
+
+                            provinciaName="siniestro.provincia"
+                            provinciaValue={formData.siniestro.provincia || ''}
+                            onProvinciaChange={handleInputChange}
+                            provinciaError={getNestedValue(errors, 'siniestro.provincia')}
+                            className="md:col-span-3"
+                        />
                         <SelectField label="Condiciones Climáticas" name="siniestro.condicionesClimaticas" value={formData.siniestro.condicionesClimaticas} onChange={handleInputChange} onBlur={handleBlur} options={CONDICIONES_CLIMATICAS_OPTIONS} error={getNestedValue(errors, 'siniestro.condicionesClimaticas')} />
                         <SelectField label="Rol de los Protagonistas" name="siniestro.rolProtagonistas" value={formData.siniestro.rolProtagonistas} onChange={handleInputChange} onBlur={handleBlur} options={ROL_PROTAGONISTAS_OPTIONS} error={getNestedValue(errors, 'siniestro.rolProtagonistas')} />
                         <SelectField label="Mecánica del Accidente" name="siniestro.mecanicaAccidente" value={formData.siniestro.mecanicaAccidente} onChange={handleInputChange} onBlur={handleBlur} options={MECANICA_ACCIDENTE_OPTIONS} error={getNestedValue(errors, 'siniestro.mecanicaAccidente')} className="lg:col-span-2" />
@@ -763,13 +866,45 @@ function App() {
                         <TestigoSubSection title="Testigo 1">
                             <InputField label="Nombre y Apellido" name="testigos.testigo1.nombreApellido" value={formData.testigos.testigo1.nombreApellido} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'testigos.testigo1.nombreApellido')} />
                             <InputField label="D.N.I." name="testigos.testigo1.dni" value={formData.testigos.testigo1.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'testigos.testigo1.dni')} />
-                            <InputField label="Domicilio" name="testigos.testigo1.domicilio" value={formData.testigos.testigo1.domicilio} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'testigos.testigo1.domicilio')} className="md:col-span-2 lg:col-span-2" />
+                            <AddressRow
+                                calleName="testigos.testigo1.domicilio"
+                                calleValue={formData.testigos.testigo1.domicilio || ''}
+                                onCalleChange={handleInputChange}
+                                calleError={getNestedValue(errors, 'testigos.testigo1.domicilio')}
+
+                                localidadName="testigos.testigo1.localidad"
+                                localidadValue={formData.testigos.testigo1.localidad || ''}
+                                onLocalidadChange={handleInputChange}
+                                localidadError={getNestedValue(errors, 'testigos.testigo1.localidad')}
+
+                                provinciaName="testigos.testigo1.provincia"
+                                provinciaValue={formData.testigos.testigo1.provincia || ''}
+                                onProvinciaChange={handleInputChange}
+                                provinciaError={getNestedValue(errors, 'testigos.testigo1.provincia')}
+                                className="md:col-span-2 lg:col-span-2"
+                            />
                             <SelectField label="Rol" name="testigos.testigo1.rol" value={formData.testigos.testigo1.rol} onChange={handleInputChange} onBlur={handleBlur} options={ROL_TESTIGO_OPTIONS} error={getNestedValue(errors, 'testigos.testigo1.rol')} />
                         </TestigoSubSection>
                         <TestigoSubSection title="Testigo 2">
                             <InputField label="Nombre y Apellido" name="testigos.testigo2.nombreApellido" value={formData.testigos.testigo2.nombreApellido} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'testigos.testigo2.nombreApellido')} />
                             <InputField label="D.N.I." name="testigos.testigo2.dni" value={formData.testigos.testigo2.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'testigos.testigo2.dni')} />
-                            <InputField label="Domicilio" name="testigos.testigo2.domicilio" value={formData.testigos.testigo2.domicilio} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'testigos.testigo2.domicilio')} className="md:col-span-2 lg:col-span-2" />
+                            <AddressRow
+                                calleName="testigos.testigo2.domicilio"
+                                calleValue={formData.testigos.testigo2.domicilio || ''}
+                                onCalleChange={handleInputChange}
+                                calleError={getNestedValue(errors, 'testigos.testigo2.domicilio')}
+
+                                localidadName="testigos.testigo2.localidad"
+                                localidadValue={formData.testigos.testigo2.localidad || ''}
+                                onLocalidadChange={handleInputChange}
+                                localidadError={getNestedValue(errors, 'testigos.testigo2.localidad')}
+
+                                provinciaName="testigos.testigo2.provincia"
+                                provinciaValue={formData.testigos.testigo2.provincia || ''}
+                                onProvinciaChange={handleInputChange}
+                                provinciaError={getNestedValue(errors, 'testigos.testigo2.provincia')}
+                                className="md:col-span-2 lg:col-span-2"
+                            />
                             <SelectField label="Rol" name="testigos.testigo2.rol" value={formData.testigos.testigo2.rol} onChange={handleInputChange} onBlur={handleBlur} options={ROL_TESTIGO_OPTIONS} error={getNestedValue(errors, 'testigos.testigo2.rol')} />
                         </TestigoSubSection>
                     </Section>
@@ -859,4 +994,3 @@ function App() {
 }
 
 export default App;
-

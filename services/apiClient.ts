@@ -80,4 +80,7 @@ export class ApiClient {
 }
 
 // Instancia global del cliente API
-export const apiClient = new ApiClient();
+// Preferir variable de entorno VITE_API_BASE_URL (Vite) y caer a un valor por defecto
+const API_BASE_URL = (import.meta as any)?.env?.VITE_API_BASE_URL || 'https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod';
+
+export const apiClient = new ApiClient(API_BASE_URL);

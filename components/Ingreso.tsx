@@ -2,6 +2,7 @@
 import Section from './Section';
 import InputField from './InputField';
 import ProvinciaSelect from './ProvinciaSelect';
+import AddressRow from './AddressRow';
 import { geographicService } from '../services/geographicService';
 import { apiClient } from '../services/apiClient';
 
@@ -59,9 +60,6 @@ const Ingreso: React.FC = () => {
     // Estado para mostrar el convenio generado en modal
     const [convenioText, setConvenioText] = useState<string | null>(null);
     const [showConvenioModal, setShowConvenioModal] = useState(false);
-
-
-    
 
     // Validación
     const validateForm = (): boolean => {
@@ -202,6 +200,11 @@ const Ingreso: React.FC = () => {
         return dateStr; // si no se puede formatear, devolver original
     };
 
+    const toRecordIdArray = (id: string) => {
+        const v = (id || '').trim();
+        return v ? [v] : [];
+    };
+
     // Función que abre una nueva ventana con el convenio listo para imprimir
     const handlePrintConvenio = (text: string) => {
         const w = window.open('', '_blank');
@@ -299,47 +302,48 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                     return v; // leave as-is if not resolvable
                 };
 
-                const payload = {
-                    tabla: 'siniestro',
-                    siniestro: {
-                        fecha: formData.siniestro.fecha.trim(),
-                        hora: formData.siniestro.hora.trim(),
-                        calle: formData.siniestro.calle.trim(),
-                        localidad: formData.siniestro.localidad.trim(),
-                        provincia: resolveProvinciaId(formData.siniestro.provincia),
-                        descripcion: formData.siniestro.descripcion.trim(),
-                    },
-                    damnificados: formData.damnificados.map(d => ({
-                        nombre: d.nombre.trim(),
-                        apellido: d.apellido.trim(),
-                        dni: d.dni.trim(),
-                        calle: d.calle.trim(),
-                        localidad: d.localidad.trim(),
-                        provincia: resolveProvinciaId(d.provincia),
-                    })),
-                };
+            const siniestroPayload = {
+                fecha: formData.siniestro.fecha.trim(),
+                hora: formData.siniestro.hora.trim(),
+                calle: formData.siniestro.calle.trim(),
+                localidad: formData.siniestro.localidad.trim(),
+                provincia: toRecordIdArray(resolveProvinciaId(formData.siniestro.provincia)), // 👈 array
+                descripcion: formData.siniestro.descripcion.trim(),
+            };
 
-            //console.log('📤 Enviando payload:', payload);
+            const damnificadosPayload = formData.damnificados.map(d => ({
+                nombre: d.nombre.trim(),
+                apellido: d.apellido.trim(),
+                dni: d.dni.trim(),
+                calle: d.calle.trim(),
+                localidad: d.localidad.trim(),
+                provincia: toRecordIdArray(resolveProvinciaId(d.provincia)), // 👈 array
+            }));
+
+            const payload = {
+                ...siniestroPayload,
+                damnificados: damnificadosPayload,
+            };
 
             console.log('JSON enviado:', JSON.stringify(payload, null, 2));
             // Para depuración, mostrar resolución de nombres a ids cuando haya diferencias
-            try {
-                const originalProv = formData.siniestro.provincia;
-                const resolvedProv = payload.siniestro.provincia;
-                if (originalProv && originalProv !== resolvedProv) {
-                    console.log(`Provincia siniestro resuelta: "${originalProv}" -> "${resolvedProv}"`);
-                }
-            } catch (e) { /* ignore */ }
+                try {
+                    const originalProv = formData.siniestro.provincia;
+                    const resolvedProv = siniestroPayload.provincia;
+                    if (originalProv && originalProv !== resolvedProv) {
+                        console.log(`Provincia siniestro resuelta: "${originalProv}" -> "${resolvedProv}"`);
+                    }
+                } catch (e) { /* ignore */ }
 
 
-            // Enviar JSON al backend via apiClient
-            const response = await apiClient.post('/ingreso', payload);
+            // Enviar JSON al backend (objeto, no array)
+            const response = await apiClient.post('/siniestro', payload);
 
             if (response.error) {
                 throw new Error(response.error);
             }
 
-            setMessage({ type: 'success', text: '✅ Ingreso guardado exitosamente.' });
+            setMessage({ type: 'success', text: '✅ Siniestro y damnificados grabados exitosamente.' });
 
             // Resetear formulario después de envío exitoso
             setFormData({
@@ -402,31 +406,19 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                     />
                 </div>
 
-                <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <InputField
-                        label="Calle"
-                        name="calle"
-                        value={formData.siniestro.calle}
-                        onChange={handleSiniestroChange}
-                        error={errors['siniestro.calle']}
-                        required
-                    />
-                    <InputField
-                        label="Localidad"
-                        name="localidad"
-                        value={formData.siniestro.localidad}
-                        onChange={handleSiniestroChange}
-                        error={errors['siniestro.localidad']}
-                        required
-                    />
-                    <ProvinciaSelect
-                        name="provincia"
-                        value={formData.siniestro.provincia}
-                        onChange={handleSiniestroChange}
-                        error={errors['siniestro.provincia']}
-                        required
-                    />
-                </div>
+                <AddressRow
+                    calleValue={formData.siniestro.calle}
+                    onCalleChange={handleSiniestroChange}
+                    calleError={errors['siniestro.calle']}
+
+                    localidadValue={formData.siniestro.localidad}
+                    onLocalidadChange={handleSiniestroChange}
+                    localidadError={errors['siniestro.localidad']}
+
+                    provinciaValue={formData.siniestro.provincia}
+                    onProvinciaChange={handleSiniestroChange}
+                    provinciaError={errors['siniestro.provincia']}
+                />
 
                 <InputField
                     label="Descripción"
@@ -492,28 +484,18 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                                 error={errors[`damnificados.${index}.dni`]}
                                 required
                             />
-                            <InputField
-                                label="Calle"
-                                name="calle"
-                                value={damnificado.calle}
-                                onChange={(e) => handleDamnificadoChange(index, e)}
-                                error={errors[`damnificados.${index}.calle`]}
-                                required
-                            />
-                            <InputField
-                                label="Localidad"
-                                name="localidad"
-                                value={damnificado.localidad}
-                                onChange={(e) => handleDamnificadoChange(index, e)}
-                                error={errors[`damnificados.${index}.localidad`]}
-                                required
-                            />
-                            <ProvinciaSelect
-                                name="provincia"
-                                value={damnificado.provincia}
-                                onChange={(e) => handleDamnificadoChange(index, e)}
-                                error={errors[`damnificados.${index}.provincia`]}
-                                required
+                            <AddressRow
+                                calleValue={damnificado.calle}
+                                onCalleChange={(e) => handleDamnificadoChange(index, e)}
+                                calleError={errors[`damnificados.${index}.calle`]}
+
+                                localidadValue={damnificado.localidad}
+                                onLocalidadChange={(e) => handleDamnificadoChange(index, e)}
+                                localidadError={errors[`damnificados.${index}.localidad`]}
+
+                                provinciaValue={damnificado.provincia}
+                                onProvinciaChange={(e) => handleDamnificadoChange(index, e)}
+                                provinciaError={errors[`damnificados.${index}.provincia`]}
                             />
                         </div>
                     </div>
