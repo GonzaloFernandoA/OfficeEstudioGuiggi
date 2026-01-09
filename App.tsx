@@ -146,17 +146,26 @@ const normalizeRecordId = (val: any): string => {
     return String(val ?? '');
 };
 
-const applyAutofillFromClienteApi = (draft: any, basePath: 'cliente' | 'coActor1', fields: any) => {
+const applyAutofillFromClienteApi = (draft: any, basePath: 'cliente' | 'coActor1' | 'titularCliente', fields: any) => {
     const nombre = String(fields?.nombre ?? '').trim();
     const apellido = String(fields?.apellido ?? '').trim();
     const nombreCompleto = [nombre, apellido].filter(Boolean).join(' ').trim();
 
-    // Completa campos principales
-    setNestedValue(draft, `${basePath}.nombreCompleto`, nombreCompleto);
-    setNestedValue(draft, `${basePath}.telefono`, String(fields?.telefono ?? ''));
-    setNestedValue(draft, `${basePath}.mail`, String(fields?.['Correo electrónico'] ?? fields?.mail ?? fields?.email ?? ''));
+    if (basePath === 'titularCliente') {
+        setNestedValue(draft, `${basePath}.nombre`, nombreCompleto);
+    } else {
+        setNestedValue(draft, `${basePath}.nombreCompleto`, nombreCompleto);
+    }
+
+    // Campos comunes (cuando existan)
     setNestedValue(draft, `${basePath}.domicilio`, String(fields?.calle ?? fields?.domicilio ?? fields?.direccion ?? ''));
     setNestedValue(draft, `${basePath}.localidad`, String(fields?.localidad ?? fields?.ciudad ?? ''));
+
+    // Solo Cliente / Co-actor: teléfono y mail
+    if (basePath !== 'titularCliente') {
+        setNestedValue(draft, `${basePath}.telefono`, String(fields?.telefono ?? ''));
+        setNestedValue(draft, `${basePath}.mail`, String(fields?.['Correo electrónico'] ?? fields?.mail ?? fields?.email ?? ''));
+    }
 
     // Estado civil: preferimos el "Name (from Estados Civiles)" si existe
     const estadoCivilLabel = Array.isArray(fields?.['Name (from Estados Civiles)'])
@@ -168,13 +177,47 @@ const applyAutofillFromClienteApi = (draft: any, basePath: 'cliente' | 'coActor1
     const fn = fields?.fechaNacimiento ?? fields?.fecha_nacimiento;
     if (fn) setNestedValue(draft, `${basePath}.fechaNacimiento`, toISODateInput(fn));
 
+    // Otros posibles campos (si el API los trae)
+    if (fields?.nombrePadre) setNestedValue(draft, `${basePath}.nombrePadre`, String(fields.nombrePadre));
+    if (fields?.nombreMadre) setNestedValue(draft, `${basePath}.nombreMadre`, String(fields.nombreMadre));
+    if (fields?.nombreConyuge) setNestedValue(draft, `${basePath}.nombreConyuge`, String(fields.nombreConyuge));
+
     // Provincia: NO se cambia la lógica de "retrieve" del front.
     // Solo seteamos el record-id si viene del JSON (ej: fields.provincia = ["rec..."])
     if (fields?.provincia) setNestedValue(draft, `${basePath}.provincia`, normalizeRecordId(fields.provincia));
 };
 
+// Cuando el DNI se borra, limpiamos los campos autocompletados (dejando el DNI intacto).
+// Nota: esto NO cambia la lógica de carga/retrieve de provincias; solo vacía el valor del campo.
+const clearAutofilledFields = (draft: any, basePath: 'cliente' | 'coActor1' | 'titularCliente') => {
+    const common = [
+        'fechaNacimiento',
+        'estadoCivil',
+        'nombrePadre',
+        'nombreMadre',
+        'nombreConyuge',
+        'domicilio',
+        'localidad',
+        'provincia',
+    ];
+
+    // En titularCliente el nombre del campo es "nombre" (no "nombreCompleto")
+    const nameField = basePath === 'titularCliente' ? 'nombre' : 'nombreCompleto';
+
+    const extra: string[] = basePath === 'titularCliente'
+        ? []
+        : ['telefono', 'mail'];
+
+    const fieldsToClear = [nameField, ...common, ...extra];
+
+    for (const f of fieldsToClear) {
+        setNestedValue(draft, `${basePath}.${f}`, '');
+    }
+};
+
+
 function useAutofillByDni(
-    basePath: 'cliente' | 'coActor1',
+    basePath: 'cliente' | 'coActor1' | 'titularCliente',
     formData: FormDataState,
     setFormData: React.Dispatch<React.SetStateAction<FormDataState>>,
 ) {
@@ -187,6 +230,21 @@ function useAutofillByDni(
     const dni = String((formData as any)?.[basePath]?.dni ?? '').trim();
 
     React.useEffect(() => {
+        //Si el usuario borra el DNI: cancelar request, resetear refs y limpiar autocompletado.
+        if (dni === '') {
+            abortRef.current?.abort();
+            lastDniRef.current = '';
+            setLoading(false);
+            setError('');
+
+            setFormData(prev => {
+                const next = JSON.parse(JSON.stringify(prev));
+                clearAutofilledFields(next, basePath);
+                return next;
+            });
+            return;
+        }
+
         setError('');
 
         if (!isValidDni(dni)) return;
@@ -218,7 +276,10 @@ function useAutofillByDni(
                 lastDniRef.current = dni;
 
                 if (!fields) {
-                    setError('Respuesta inválida del servicio de clientes.');
+                    //setError('Respuesta inválida del servicio de clientes.');
+                    //setLoading(false);
+                    lastDniRef.current = dni;
+                    setError('No se encontró un cliente para ese DNI.');
                     setLoading(false);
                     return;
                 }
@@ -243,7 +304,6 @@ function useAutofillByDni(
 
     return { loading, error };
 }
-
 
 
 const requiredFields = [
@@ -441,6 +501,7 @@ function App() {
     const [formData, setFormData] = useState<FormDataState>(initialState);
     const clienteLookup = useAutofillByDni('cliente', formData, setFormData);
     const coActor1Lookup = useAutofillByDni('coActor1', formData, setFormData);
+    const titularLookup = useAutofillByDni('titularCliente', formData, setFormData);
     const [errors, setErrors] = useState<ValidationErrors>({});
     const [editingCaseId, setEditingCaseId] = useState<number | null>(null);
     const [view, setView] = useState<View>('dashboard');
@@ -455,7 +516,7 @@ function App() {
             .catch(err => console.error('⚠️ Falló precarga de provincias', err));
     }, []);
     const sanitizeDniInput = (name: string, value: string): string => {
-        if (name === 'cliente.dni' || name === 'coActor1.dni') {
+        if (name === 'cliente.dni' || name === 'coActor1.dni' || name === 'titularCliente.dni') {
             return String(value || '').replace(/\D/g, '').slice(0, 8);
         }
         return value;
@@ -710,12 +771,9 @@ function App() {
                         {/* Actor Principal */}
                         <Section title="Datos del Cliente (Actor Principal)" description="Información personal del cliente principal">
                             <InputField label="D.N.I." name="cliente.dni" value={formData.cliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.dni')} required />
-                            {clienteLookup.loading && (
-                                <div className="md:col-span-3 text-sm text-slate-500">Buscando datos por DNI...</div>
-                            )}
-                            {clienteLookup.error && (
-                                <div className="md:col-span-3 text-sm text-red-600">{clienteLookup.error}</div>
-                            )}
+                            <div className={`md:col-span-3 text-sm min-h-[1.25rem] ${clienteLookup.error ? 'text-red-600' : 'text-slate-500'}`}>
+                                {clienteLookup.loading ? 'Buscando datos por DNI...' : (clienteLookup.error ? clienteLookup.error : '\u00A0')}
+                            </div>
                             <InputField label="Nombre y Apellido" name="cliente.nombreCompleto" value={formData.cliente.nombreCompleto} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.nombreCompleto')} required />
                             <InputField label="Fecha de Nacimiento" name="cliente.fechaNacimiento" type="date" value={formData.cliente.fechaNacimiento} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.fechaNacimiento')} required />
                             <SelectField label="Estado Civil" name="cliente.estadoCivil" value={formData.cliente.estadoCivil} onChange={handleInputChange} onBlur={handleBlur} options={ESTADO_CIVIL_OPTIONS} error={getNestedValue(errors, 'cliente.estadoCivil')} />
@@ -795,8 +853,11 @@ function App() {
 
                         {/* Titular Registral */}
                         <Section title="Datos del Titular Registral">
+                            <InputField label="D.N.I." name="titularCliente.dni" value={formData.titularCliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'titularCliente.dni')} required />
+                            <div className={`md:col-span-3 text-sm min-h-[1.25rem] ${titularLookup.error ? 'text-red-600' : 'text-slate-500'}`}>
+                                {titularLookup.loading ? 'Buscando datos por DNI...' : (titularLookup.error ? titularLookup.error : '\u00A0')}
+                            </div>
                             <InputField label="Nombre del Titular" name="titularCliente.nombre" value={formData.titularCliente.nombre} onChange={handleInputChange} />
-                            <InputField label="D.N.I. del Titular" name="titularCliente.dni" value={formData.titularCliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'titularCliente.dni')} />
                             <InputField label="Fecha de Nacimiento del Titular" name="titularCliente.fechaNacimiento" type="date" value={formData.titularCliente.fechaNacimiento} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'titularCliente.fechaNacimiento')} />
                             <SelectField label="Estado Civil" name="titularCliente.estadoCivil" value={formData.titularCliente.estadoCivil} onChange={handleInputChange} options={ESTADO_CIVIL_OPTIONS} />
                             <InputField label="Nombre del Padre" name="titularCliente.nombrePadre" value={formData.titularCliente.nombrePadre} onChange={handleInputChange} />
@@ -825,12 +886,9 @@ function App() {
                         {/* Co-Actor (Opcional) */}
                         <Section title="Datos del Co-Actor 1 (Opcional)" description="Completar solo si existe otro actor en el caso">
                             <InputField label="D.N.I." name="coActor1.dni" value={formData.coActor1.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.dni')} />
-                            {coActor1Lookup.loading && (
-                                <div className="md:col-span-3 text-sm text-slate-500">Buscando datos por DNI...</div>
-                            )}
-                            {coActor1Lookup.error && (
-                                <div className="md:col-span-3 text-sm text-red-600">{coActor1Lookup.error}</div>
-                            )}
+                            <div className={`md:col-span-3 text-sm min-h-[1.25rem] ${coActor1Lookup.error ? 'text-red-600' : 'text-slate-500'}`}>
+                                {coActor1Lookup.loading ? 'Buscando datos por DNI...' : (coActor1Lookup.error ? coActor1Lookup.error : '\u00A0')}
+                            </div>
                             <InputField label="Nombre y Apellido" name="coActor1.nombreCompleto" value={formData.coActor1.nombreCompleto} onChange={handleInputChange} />
                             <InputField label="Fecha de Nacimiento" name="coActor1.fechaNacimiento" type="date" value={formData.coActor1.fechaNacimiento} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.fechaNacimiento')} />
                             <SelectField label="Estado Civil" name="coActor1.estadoCivil" value={formData.coActor1.estadoCivil} onChange={handleInputChange} options={ESTADO_CIVIL_OPTIONS} />
