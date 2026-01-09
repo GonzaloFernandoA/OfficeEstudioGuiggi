@@ -36,6 +36,7 @@ import ProvinciaSelect from './components/ProvinciaSelect';
 
 
 const PROVINCIAS_API_URL = 'https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/provincias';
+const CLIENTE_API_URL = 'https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/cliente';
 
 const initialLesionesState: Lesiones = {
     centroMedico1: '', centroMedico2: '', modoTraslado: '', fueOperado: '', estuvoInternado: '',
@@ -44,7 +45,7 @@ const initialLesionesState: Lesiones = {
 
 const initialPersonState = {
     nombreCompleto: '', dni: '', fechaNacimiento: '', estadoCivil: '', nombrePadre: '',
-    nombreMadre: '', nombreConyuge: '', domicilio: '', localidad: '', telefono: '', 
+    nombreMadre: '', nombreConyuge: '', domicilio: '', localidad: '', telefono: '',
     ocupacion: '', sueldo: '', lugarTrabajo: '', art: '', vivienda: '', composicionFamiliar: '', hijosACargo: '',
     mail: '', ig: '',
     poseeRegistro: '', vigenciaRegistro: '', categoriasRegistro: '', rolAccidente: '',
@@ -98,7 +99,7 @@ type View = 'form' | 'dashboard' | 'setup' | 'ingreso';
 
 // --- Validation Logic ---
 type DeepPartialWithString<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartialWithString<T[P]> : string;
+    [P in keyof T]?: T[P] extends object ? DeepPartialWithString<T[P]> : string;
 };
 type ValidationErrors = DeepPartialWithString<FormDataState>;
 
@@ -118,10 +119,10 @@ const setNestedValue = (obj: any, path: string, value: any) => {
 };
 
 const requiredFields = [
-  'cliente.nombreCompleto', 'cliente.dni', 'cliente.fechaNacimiento', 'cliente.domicilio', 
-  'cliente.localidad', 'cliente.telefono', 'cliente.mail', 'cliente.rolAccidente',
-  'vehiculoCliente.vehiculo', 'vehiculoCliente.dominio',
-  'siniestro.lugarHecho', 'siniestro.fechaHecho', 'siniestro.horaHecho',
+    'cliente.nombreCompleto', 'cliente.dni', 'cliente.fechaNacimiento', 'cliente.domicilio',
+    'cliente.localidad', 'cliente.telefono', 'cliente.mail', 'cliente.rolAccidente',
+    'vehiculoCliente.vehiculo', 'vehiculoCliente.dominio',
+    'siniestro.lugarHecho', 'siniestro.fechaHecho', 'siniestro.horaHecho',
 ];
 
 const validateField = (name: string, value: any): string => {
@@ -138,7 +139,7 @@ const validateField = (name: string, value: any): string => {
     };
 
     const requiredError = 'Este campo es obligatorio.';
-    
+
     if (requiredFields.includes(name) && !isNotEmpty(value)) {
         return requiredError;
     }
@@ -314,6 +315,9 @@ function App() {
     const [editingCaseId, setEditingCaseId] = useState<number | null>(null);
     const [view, setView] = useState<View>('dashboard');
 
+    // Autocompletado por DNI (Actor Principal)
+    const [dniLookup, setDniLookup] = useState<{ loading: boolean; error: string | null }>({ loading: false, error: null });
+
     useEffect(() => {
         localStorage.setItem('casos', JSON.stringify(cases));
     }, [cases]);
@@ -324,15 +328,126 @@ function App() {
             .catch(err => console.error('⚠️ Falló precarga de provincias', err));
     }, []);
 
+
+    // Autocompletado: al ingresar DNI válido en Actor Principal, trae datos y completa campos
+    useEffect(() => {
+        const rawDni = formData.cliente.dni || '';
+        const dni = String(rawDni).replace(/\D/g, '');
+
+        // Solo lookup si parece DNI argentino (7 u 8 dígitos)
+        if (!/^\d{7,8}$/.test(dni)) {
+            // si está vacío, limpiar estado; si está incompleto, no molestar
+            setDniLookup(prev => (prev.loading || prev.error) ? { loading: false, error: null } : prev);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeout = window.setTimeout(async () => {
+            try {
+                setDniLookup({ loading: true, error: null });
+
+                const resp = await fetch(`${CLIENTE_API_URL}?dni=${encodeURIComponent(dni)}`, {
+                    method: 'GET',
+                    signal: controller.signal,
+                    headers: { 'Accept': 'application/json' },
+                });
+
+                if (!resp.ok) {
+                    throw new Error(`HTTP ${resp.status}`);
+                }
+
+                const data = await resp.json();
+                const record = data?.records?.[0];
+                const f = record?.fields;
+
+                if (!f) {
+                    setDniLookup({ loading: false, error: 'No se encontró un cliente con ese DNI.' });
+                    return;
+                }
+
+                const nombre = (f.nombre ?? '').toString().trim();
+                const apellido = (f.apellido ?? '').toString().trim();
+                const nombreCompleto = `${nombre} ${apellido}`.trim();
+
+                const telefono = (f.telefono ?? '').toString();
+                const mail = (f['Correo electrónico'] ?? f.mail ?? '').toString();
+                const domicilio = (f.calle ?? f.domicilio ?? '').toString();
+                const localidad = (f.localidad ?? '').toString();
+
+                // Estado civil: preferir el nombre calculado si viene (Airtable "Name (from ...)")
+                const estadoCivil =
+                    Array.isArray(f['Name (from Estados Civiles)']) ? (f['Name (from Estados Civiles)'][0] ?? '') :
+                        (Array.isArray(f['Estados Civiles']) ? (f['Estados Civiles'][0] ?? '') : (f.estadoCivil ?? ''));
+
+                // Provincia: dejar la lógica de provincias como está; solo seteamos el record-id si viene del servicio
+                const provincia =
+                    Array.isArray(f.provincia) ? (f.provincia[0] ?? '') : (f.provincia ?? '');
+
+                // Fecha de nacimiento (si el backend la trae en algún campo conocido)
+                const fechaNacimientoRaw =
+                    f.fechaNacimiento ?? f['fechaNacimiento'] ?? f['Fecha de Nacimiento'] ?? f['fecha_nacimiento'] ?? '';
+                const fechaNacimiento = fechaNacimientoRaw ? String(fechaNacimientoRaw) : '';
+
+                setFormData(prev => {
+                    const next = JSON.parse(JSON.stringify(prev));
+
+                    // Nunca tocamos DNI (ya está), completamos el resto si hay datos
+                    if (nombreCompleto) setNestedValue(next, 'cliente.nombreCompleto', nombreCompleto);
+                    if (telefono) setNestedValue(next, 'cliente.telefono', telefono);
+                    if (mail) setNestedValue(next, 'cliente.mail', mail);
+                    if (domicilio) setNestedValue(next, 'cliente.domicilio', domicilio);
+                    if (localidad) setNestedValue(next, 'cliente.localidad', localidad);
+                    if (estadoCivil) setNestedValue(next, 'cliente.estadoCivil', estadoCivil);
+                    if (provincia) setNestedValue(next, 'cliente.provincia', provincia);
+                    if (fechaNacimiento) setNestedValue(next, 'cliente.fechaNacimiento', fechaNacimiento);
+
+                    return next;
+                });
+
+                // limpiar errores de campos que acabamos de completar
+                setErrors(prev => {
+                    const nextErr = JSON.parse(JSON.stringify(prev));
+                    [
+                        'cliente.nombreCompleto',
+                        'cliente.fechaNacimiento',
+                        'cliente.estadoCivil',
+                        'cliente.domicilio',
+                        'cliente.localidad',
+                        'cliente.telefono',
+                        'cliente.mail',
+                        'cliente.provincia',
+                    ].forEach(p => setNestedValue(nextErr, p, ''));
+                    return nextErr;
+                });
+
+                setDniLookup({ loading: false, error: null });
+            } catch (err: any) {
+                if (err?.name === 'AbortError') return;
+                console.error('⚠️ Error lookup cliente por DNI', err);
+                setDniLookup({ loading: false, error: 'No se pudo recuperar el cliente por DNI.' });
+            }
+        }, 500); // debounce
+
+        return () => {
+            window.clearTimeout(timeout);
+            controller.abort();
+        };
+    }, [formData.cliente.dni]);
+
+
     const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        
+
+        // DNI: normalizar a solo dígitos (máx 8) para evitar inputs raros y facilitar lookup
+        const nextValue = name.endsWith('.dni') ? String(value).replace(/\D/g, '').slice(0, 8) : value;
+
+
         setFormData(prev => {
             const newState = JSON.parse(JSON.stringify(prev));
-            setNestedValue(newState, name, value);
+            setNestedValue(newState, name, nextValue);
             return newState;
         });
-        
+
         if (getNestedValue(errors, name)) {
             setErrors(prev => {
                 const newErrors = JSON.parse(JSON.stringify(prev));
@@ -353,16 +468,16 @@ function App() {
             } else {
                 newArray = currentArray.filter((item: string) => item !== itemName);
             }
-            
+
             setNestedValue(newState, path, newArray);
             return newState;
         });
     }, []);
-    
+
     const validateForm = (): boolean => {
         const newErrors: ValidationErrors = {};
         let isValid = true;
-        
+
         requiredFields.forEach(field => {
             const error = validateField(field, getNestedValue(formData, field));
             if (error) {
@@ -375,7 +490,7 @@ function App() {
             isValid = false;
             setNestedValue(newErrors, 'cliente.lesiones.zonasAfectadas', 'Debe seleccionar al menos una zona afectada.');
         }
-        
+
         if (formData.coActor1.nombreCompleto.trim() !== '' && formData.coActor1.lesiones.zonasAfectadas.length === 0) {
             isValid = false;
             setNestedValue(newErrors, 'coActor1.lesiones.zonasAfectadas', 'Debe seleccionar al menos una zona afectada para el co-actor.');
@@ -384,7 +499,7 @@ function App() {
         setErrors(newErrors);
         return isValid;
     };
-    
+
     const handleEdit = (caseId: number) => {
         const caseToEdit = cases.find(c => c.id === caseId);
         if (caseToEdit) {
@@ -422,9 +537,9 @@ function App() {
     }
 
     // Setup handlers & state
-    const [setupSection, setSetupSection] = useState<'comisaria'|'aseguradoras'|'contactos'|'marcas'|null>(null);
+    const [setupSection, setSetupSection] = useState<'comisaria' | 'aseguradoras' | 'contactos' | 'marcas' | null>(null);
 
-    const openSetupSection = (section: 'comisaria'|'aseguradoras'|'contactos'|'marcas') => {
+    const openSetupSection = (section: 'comisaria' | 'aseguradoras' | 'contactos' | 'marcas') => {
         setSetupSection(section);
         setView('setup');
     }
@@ -442,16 +557,16 @@ function App() {
                 setCases(prevCases => [...prevCases, newCase]);
                 alert("Caso ingresado con éxito.");
             }
-            
+
             setFormData(initialState);
             setErrors({});
             setEditingCaseId(null);
             setView('dashboard');
         } else {
-             alert("Por favor, corrija los errores marcados en el formulario.");
+            alert("Por favor, corrija los errores marcados en el formulario.");
         }
     };
-    
+
     const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         const error = validateField(name, value);
@@ -480,8 +595,8 @@ function App() {
         <div className="min-h-screen text-slate-800">
             <header className="bg-white shadow-md sticky top-0 z-50 relative">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
-                     <div className="flex items-center">
-                         {/* Logo / Title Area */}
+                    <div className="flex items-center">
+                        {/* Logo / Title Area */}
                         <div className="flex-shrink-0 flex items-center cursor-pointer" onClick={handleDashboard}>
                             <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Gestión de Casos</h1>
                         </div>
@@ -506,7 +621,7 @@ function App() {
                                 </div>
                             </div>
 
-                             {/* Clientes Dropdown */}
+                            {/* Clientes Dropdown */}
                             <div className="relative group">
                                 <button className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium leading-5 text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors focus:outline-none">
                                     Cliente
@@ -546,7 +661,7 @@ function App() {
                             <button onClick={() => openSetupSection('comisaria')} className="text-sm font-medium text-slate-600">Comisaría</button>
                             <button onClick={() => openSetupSection('aseguradoras')} className="text-sm font-medium text-slate-600">Aseguradoras</button>
                         </div>
-                     </div>
+                    </div>
                 </div>
                 <VersionBadge />
                 {appStage === 'TESTING' && (
@@ -554,23 +669,31 @@ function App() {
                         TESTING
                     </div>
                 )}
-             </header>
+            </header>
 
             <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {view === 'ingreso' ? (
-    <Ingreso />
-) : view === 'form' ? (
+                    <Ingreso />
+                ) : view === 'form' ? (
                     <form onSubmit={handleSubmit} noValidate>
                         <div className="mb-6">
                             <h2 className="text-xl font-bold text-slate-900">
                                 {editingCaseId ? `Editando caso de ${formData.cliente.nombreCompleto}` : 'Nuevo Caso'}
                             </h2>
-                             <p className="text-sm text-slate-500">Los campos marcados con <span className="text-red-500">*</span> son obligatorios.</p>
+                            <p className="text-sm text-slate-500">Los campos marcados con <span className="text-red-500">*</span> son obligatorios.</p>
                         </div>
                         {/* Actor Principal */}
                         <Section title="Datos del Cliente (Actor Principal)" description="Información personal del cliente principal">
-                            <InputField label="Nombre y Apellido" name="cliente.nombreCompleto" value={formData.cliente.nombreCompleto} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.nombreCompleto')} required />
                             <InputField label="D.N.I." name="cliente.dni" value={formData.cliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.dni')} required />
+                            <div className="md:col-span-2 lg:col-span-3 -mt-2">
+                                {dniLookup.loading && (
+                                    <p className="text-xs text-slate-500">Buscando cliente por DNI…</p>
+                                )}
+                                {dniLookup.error && (
+                                    <p className="text-xs text-red-600">{dniLookup.error}</p>
+                                )}
+                            </div>
+                            <InputField label="Nombre y Apellido" name="cliente.nombreCompleto" value={formData.cliente.nombreCompleto} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.nombreCompleto')} required />
                             <InputField label="Fecha de Nacimiento" name="cliente.fechaNacimiento" type="date" value={formData.cliente.fechaNacimiento} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.fechaNacimiento')} required />
                             <SelectField label="Estado Civil" name="cliente.estadoCivil" value={formData.cliente.estadoCivil} onChange={handleInputChange} onBlur={handleBlur} options={ESTADO_CIVIL_OPTIONS} error={getNestedValue(errors, 'cliente.estadoCivil')} />
                             <InputField label="Nombre del Padre" name="cliente.nombrePadre" value={formData.cliente.nombrePadre} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.nombrePadre')} />
@@ -594,19 +717,19 @@ function App() {
                                 className="md:col-span-3"
                             />
                             <InputField label="Teléfono" name="cliente.telefono" type="tel" value={formData.cliente.telefono} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.telefono')} required />
-                            
+
                             <InputField label="Ocupación" name="cliente.ocupacion" value={formData.cliente.ocupacion} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.ocupacion')} />
                             <InputField label="Sueldo Aproximado" name="cliente.sueldo" value={formData.cliente.sueldo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.sueldo')} />
                             <InputField label="Lugar de Trabajo / Empresa" name="cliente.lugarTrabajo" value={formData.cliente.lugarTrabajo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.lugarTrabajo')} />
                             <InputField label="ART" name="cliente.art" value={formData.cliente.art} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.art')} />
                             <SelectField label="Vivienda" name="cliente.vivienda" value={formData.cliente.vivienda} onChange={handleInputChange} onBlur={handleBlur} options={VIVIENDA_OPTIONS} error={getNestedValue(errors, 'cliente.vivienda')} />
                             <InputField label="Cantidad de Hijos a Cargo" name="cliente.hijosACargo" type="number" value={formData.cliente.hijosACargo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.hijosACargo')} />
-                            <InputField label="Composición Familiar" name="cliente.composicionFamiliar" value={formData.cliente.composicionFamiliar} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.composicionFamiliar')} as="textarea" rows={2} className="md:col-span-3"/>
-                            
+                            <InputField label="Composición Familiar" name="cliente.composicionFamiliar" value={formData.cliente.composicionFamiliar} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.composicionFamiliar')} as="textarea" rows={2} className="md:col-span-3" />
+
                             <InputField label="Mail" name="cliente.mail" type="email" value={formData.cliente.mail} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.mail')} required />
                             <InputField label="IG" name="cliente.ig" value={formData.cliente.ig} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.ig')} />
                             <InputField label="Le Recomienda" name="cliente.recomienda" value={formData.cliente.recomienda} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.recomienda')} />
-                            
+
                             <div className="md:col-span-2 lg:col-span-3 my-4 border-t border-slate-200"></div>
                             <SelectField label="¿Posee Registro de Conducir?" name="cliente.poseeRegistro" value={formData.cliente.poseeRegistro} onChange={handleInputChange} onBlur={handleBlur} options={SI_NO_OPTIONS} error={getNestedValue(errors, 'cliente.poseeRegistro')} />
                             <InputField label="Vigencia del Registro" name="cliente.vigenciaRegistro" type="date" value={formData.cliente.vigenciaRegistro} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.vigenciaRegistro')} />
@@ -614,351 +737,351 @@ function App() {
                             <SelectField label="Rol en el Accidente" name="cliente.rolAccidente" value={formData.cliente.rolAccidente} onChange={handleInputChange} options={ROL_ACCIDENTE_OPTIONS} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.rolAccidente')} required />
                         </Section>
 
-                         {/* Lesiones Cliente */}
-                    <Section title={`Lesiones y Atención Médica de ${formData.cliente.nombreCompleto || 'Cliente Principal'}`} description="Detalles de la atención médica y lesiones sufridas">
-                        <InputField label="Centro Médico de Atención" name="cliente.lesiones.centroMedico1" value={formData.cliente.lesiones.centroMedico1} onChange={handleInputChange} />
-                        <InputField label="Segundo Centro Médico" name="cliente.lesiones.centroMedico2" value={formData.cliente.lesiones.centroMedico2} onChange={handleInputChange} />
-                        <SelectField label="Modo de Traslado" name="cliente.lesiones.modoTraslado" value={formData.cliente.lesiones.modoTraslado} onChange={handleInputChange} options={MODO_TRASLADO_OPTIONS}/>
-                        <SelectField label="¿Fue Operado?" name="cliente.lesiones.fueOperado" value={formData.cliente.lesiones.fueOperado} onChange={handleInputChange} options={SI_NO_OPTIONS}/>
-                        <SelectField label="¿Estuvo Internado?" name="cliente.lesiones.estuvoInternado" value={formData.cliente.lesiones.estuvoInternado} onChange={handleInputChange} options={SI_NO_OPTIONS}/>
-                        
-                        <CheckboxGrid title="Tipo de Lesión Reclamada" options={TIPO_LESION_OPTIONS} selectedOptions={formData.cliente.lesiones.tipoLesion} onCheckboxChange={(item, checked) => handleCheckboxChange('cliente.lesiones.tipoLesion', item, checked)} />
+                        {/* Lesiones Cliente */}
+                        <Section title={`Lesiones y Atención Médica de ${formData.cliente.nombreCompleto || 'Cliente Principal'}`} description="Detalles de la atención médica y lesiones sufridas">
+                            <InputField label="Centro Médico de Atención" name="cliente.lesiones.centroMedico1" value={formData.cliente.lesiones.centroMedico1} onChange={handleInputChange} />
+                            <InputField label="Segundo Centro Médico" name="cliente.lesiones.centroMedico2" value={formData.cliente.lesiones.centroMedico2} onChange={handleInputChange} />
+                            <SelectField label="Modo de Traslado" name="cliente.lesiones.modoTraslado" value={formData.cliente.lesiones.modoTraslado} onChange={handleInputChange} options={MODO_TRASLADO_OPTIONS} />
+                            <SelectField label="¿Fue Operado?" name="cliente.lesiones.fueOperado" value={formData.cliente.lesiones.fueOperado} onChange={handleInputChange} options={SI_NO_OPTIONS} />
+                            <SelectField label="¿Estuvo Internado?" name="cliente.lesiones.estuvoInternado" value={formData.cliente.lesiones.estuvoInternado} onChange={handleInputChange} options={SI_NO_OPTIONS} />
 
-                        <CheckboxGrid title="Zonas Afectadas" options={ZONAS_CORPORALES} selectedOptions={formData.cliente.lesiones.zonasAfectadas} onCheckboxChange={(item, checked) => handleCheckboxChange('cliente.lesiones.zonasAfectadas', item, checked)} required error={getNestedValue(errors, 'cliente.lesiones.zonasAfectadas')} />
-                        <InputField label="Otras Zonas" name="cliente.lesiones.otrasZonasAfectadas" value={formData.cliente.lesiones.otrasZonasAfectadas} onChange={handleInputChange} placeholder="Especifique otras zonas afectadas" className="md:col-span-2 lg:col-span-3"/>
-                        <CheckboxGrid title="Zonas de Radiografías" options={ZONAS_RADIOGRAFIAS} selectedOptions={formData.cliente.lesiones.zonasRadiografias} onCheckboxChange={(item, checked) => handleCheckboxChange('cliente.lesiones.zonasRadiografias', item, checked)} />
-                        <InputField label="Otras Radiografías" name="cliente.lesiones.otrasZonasRadiografias" value={formData.cliente.lesiones.otrasZonasRadiografias} onChange={handleInputChange} placeholder="Especifique otras zonas con radiografías" className="md:col-span-2 lg:col-span-3"/>
-                    </Section>
+                            <CheckboxGrid title="Tipo de Lesión Reclamada" options={TIPO_LESION_OPTIONS} selectedOptions={formData.cliente.lesiones.tipoLesion} onCheckboxChange={(item, checked) => handleCheckboxChange('cliente.lesiones.tipoLesion', item, checked)} />
 
-                    {/* Vehículo Actor Principal */}
-                    <Section title="Vehículo (Actor Principal)">
-                         <InputField label="Vehículo" name="vehiculoCliente.vehiculo" value={formData.vehiculoCliente.vehiculo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.vehiculo')} required />
-                         <InputField label="Dominio" name="vehiculoCliente.dominio" value={formData.vehiculoCliente.dominio} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.dominio')} required />
-                         <InputField label="Color del Auto" name="vehiculoCliente.color" value={formData.vehiculoCliente.color} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.color')} />
-                         <InputField label="Compañía de Seguros" name="vehiculoCliente.companiaSeguros" value={formData.vehiculoCliente.companiaSeguros} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.companiaSeguros')} />
-                         <InputField label="Número de Póliza" name="vehiculoCliente.numeroPoliza" value={formData.vehiculoCliente.numeroPoliza} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.numeroPoliza')} />
-                         <InputField label="Suma Asegurada" name="vehiculoCliente.sumaAsegurada" value={formData.vehiculoCliente.sumaAsegurada} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.sumaAsegurada')} />
-                         <InputField label="Franquicia" name="vehiculoCliente.franquicia" value={formData.vehiculoCliente.franquicia} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.franquicia')} />
-                    </Section>
-
-                    {/* Daños Materiales */}
-                    <Section title="Daños Materiales">
-                        <CheckboxGrid title="Daños del Vehículo del actor, especificar zona del impacto" options={DANOS_VEHICULO} selectedOptions={formData.danosMateriales.zonas} onCheckboxChange={(item, checked) => handleCheckboxChange('danosMateriales.zonas', item, checked)} />
-                        <InputField label="Otro" name="danosMateriales.otro" value={formData.danosMateriales.otro} onChange={handleInputChange} className="md:col-span-2 lg:col-span-3"/>
-                    </Section>
-
-                    {/* Titular Registral */}
-                    <Section title="Datos del Titular Registral">
-                        <InputField label="Nombre del Titular" name="titularCliente.nombre" value={formData.titularCliente.nombre} onChange={handleInputChange} />
-                        <InputField label="D.N.I. del Titular" name="titularCliente.dni" value={formData.titularCliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'titularCliente.dni')} />
-                        <InputField label="Fecha de Nacimiento del Titular" name="titularCliente.fechaNacimiento" type="date" value={formData.titularCliente.fechaNacimiento} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'titularCliente.fechaNacimiento')} />
-                        <SelectField label="Estado Civil" name="titularCliente.estadoCivil" value={formData.titularCliente.estadoCivil} onChange={handleInputChange} options={ESTADO_CIVIL_OPTIONS} />
-                        <InputField label="Nombre del Padre" name="titularCliente.nombrePadre" value={formData.titularCliente.nombrePadre} onChange={handleInputChange} />
-                        <InputField label="Nombre de la Madre" name="titularCliente.nombreMadre" value={formData.titularCliente.nombreMadre} onChange={handleInputChange} />
-                        <InputField label="Nombre del Cónyuge" name="titularCliente.nombreConyuge" value={formData.titularCliente.nombreConyuge} onChange={handleInputChange} helpText="Completar si es casado/a" />
-                        <AddressRow
-                            calleName="titularCliente.domicilio"
-                            calleValue={formData.titularCliente.domicilio || ''}
-                            onCalleChange={handleInputChange}
-                            calleError={getNestedValue(errors, 'titularCliente.domicilio')}
-
-                            localidadName="titularCliente.localidad"
-                            localidadValue={formData.titularCliente.localidad || ''}
-                            onLocalidadChange={handleInputChange}
-                            localidadError={getNestedValue(errors, 'titularCliente.localidad')}
-
-                            provinciaName="titularCliente.provincia"
-                            provinciaValue={formData.titularCliente.provincia || ''}
-                            onProvinciaChange={handleInputChange}
-                            provinciaError={getNestedValue(errors, 'titularCliente.provincia')}
-                            className="md:col-span-3"
-                            labelSuffix=" Del Titular"
-                        />
-                    </Section>
-                    
-                    {/* Co-Actor (Opcional) */}
-                    <Section title="Datos del Co-Actor 1 (Opcional)" description="Completar solo si existe otro actor en el caso">
-                        <InputField label="Nombre y Apellido" name="coActor1.nombreCompleto" value={formData.coActor1.nombreCompleto} onChange={handleInputChange} />
-                        <InputField label="D.N.I." name="coActor1.dni" value={formData.coActor1.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.dni')} />
-                        <InputField label="Fecha de Nacimiento" name="coActor1.fechaNacimiento" type="date" value={formData.coActor1.fechaNacimiento} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.fechaNacimiento')} />
-                        <SelectField label="Estado Civil" name="coActor1.estadoCivil" value={formData.coActor1.estadoCivil} onChange={handleInputChange} options={ESTADO_CIVIL_OPTIONS} />
-                        <InputField label="Nombre del Padre" name="coActor1.nombrePadre" value={formData.coActor1.nombrePadre} onChange={handleInputChange} />
-                        <InputField label="Nombre de la Madre" name="coActor1.nombreMadre" value={formData.coActor1.nombreMadre} onChange={handleInputChange} />
-                        <InputField label="Nombre del Cónyuge" name="coActor1.nombreConyuge" value={formData.coActor1.nombreConyuge} onChange={handleInputChange} helpText="Completar si es casado/a" />
-                        <AddressRow
-                            calleName="coActor1.domicilio"
-                            calleValue={formData.coActor1.domicilio || ''}
-                            onCalleChange={handleInputChange}
-                            calleError={getNestedValue(errors, 'coActor1.domicilio')}
-
-                            localidadName="coActor1.localidad"
-                            localidadValue={formData.coActor1.localidad || ''}
-                            onLocalidadChange={handleInputChange}
-                            localidadError={getNestedValue(errors, 'coActor1.localidad')}
-
-                            provinciaName="coActor1.provincia"
-                            provinciaValue={formData.coActor1.provincia || ''}
-                            onProvinciaChange={handleInputChange}
-                            provinciaError={getNestedValue(errors, 'coActor1.provincia')}
-                            className="md:col-span-3"
-                        />
-                        <InputField label="Teléfono" name="coActor1.telefono" type="tel" value={formData.coActor1.telefono} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.telefono')} />
-
-                        <InputField label="Ocupación" name="coActor1.ocupacion" value={formData.coActor1.ocupacion} onChange={handleInputChange} />
-                        <InputField label="Sueldo Aproximado" name="coActor1.sueldo" value={formData.coActor1.sueldo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.sueldo')} />
-                        <InputField label="Lugar de Trabajo / Empresa" name="coActor1.lugarTrabajo" value={formData.coActor1.lugarTrabajo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.lugarTrabajo')} />
-                        <InputField label="ART" name="coActor1.art" value={formData.coActor1.art} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.art')} />
-                        <SelectField label="Vivienda" name="coActor1.vivienda" value={formData.coActor1.vivienda} onChange={handleInputChange} onBlur={handleBlur} options={VIVIENDA_OPTIONS} error={getNestedValue(errors, 'coActor1.vivienda')} />
-                        <InputField label="Cantidad de Hijos a Cargo" name="coActor1.hijosACargo" type="number" value={formData.coActor1.hijosACargo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.hijosACargo')} />
-                        <InputField label="Composición Familiar" name="coActor1.composicionFamiliar" value={formData.coActor1.composicionFamiliar} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.composicionFamiliar')} as="textarea" rows={2} className="md:col-span-3"/>
-
-                        <InputField label="Mail" name="coActor1.mail" type="email" value={formData.coActor1.mail} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.mail')} />
-                        <InputField label="IG" name="coActor1.ig" value={formData.coActor1.ig} onChange={handleInputChange} onBlur={handleBlur} />
-
-                        <div className="md:col-span-2 lg:col-span-3 my-4 border-t border-slate-200"></div>
-                        <SelectField label="¿Posee Registro de Conducir?" name="coActor1.poseeRegistro" value={formData.coActor1.poseeRegistro} onChange={handleInputChange} onBlur={handleBlur} options={SI_NO_OPTIONS} />
-                        <InputField label="Vigencia del Registro" name="coActor1.vigenciaRegistro" type="date" value={formData.coActor1.vigenciaRegistro} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.vigenciaRegistro')} />
-                        <SelectField label="Categorías del Registro" name="coActor1.categoriasRegistro" value={formData.coActor1.categoriasRegistro} onChange={handleInputChange} options={CATEGORIAS_REGISTRO_OPTIONS} />
-                        <SelectField label="Rol en el Accidente" name="coActor1.rolAccidente" value={formData.coActor1.rolAccidente} onChange={handleInputChange} options={ROL_ACCIDENTE_OPTIONS} />
-                    </Section>
-
-                    {/* Lesiones Co-Actor (Condicional) */}
-                    {formData.coActor1.nombreCompleto.trim() !== '' && (
-                       <Section title={`Lesiones y Atención Médica de ${formData.coActor1.nombreCompleto}`} description={`Detalles de la atención médica y lesiones sufridas por el co-actor.`}>
-                            <InputField label="Centro Médico de Atención" name="coActor1.lesiones.centroMedico1" value={formData.coActor1.lesiones.centroMedico1} onChange={handleInputChange} />
-                            <InputField label="Segundo Centro Médico" name="coActor1.lesiones.centroMedico2" value={formData.coActor1.lesiones.centroMedico2} onChange={handleInputChange} />
-                            <SelectField label="Modo de Traslado" name="coActor1.lesiones.modoTraslado" value={formData.coActor1.lesiones.modoTraslado} onChange={handleInputChange} options={MODO_TRASLADO_OPTIONS}/>
-                            <SelectField label="¿Fue Operado?" name="coActor1.lesiones.fueOperado" value={formData.coActor1.lesiones.fueOperado} onChange={handleInputChange} options={SI_NO_OPTIONS}/>
-                            <SelectField label="¿Estuvo Internado?" name="coActor1.lesiones.estuvoInternado" value={formData.coActor1.lesiones.estuvoInternado} onChange={handleInputChange} options={SI_NO_OPTIONS}/>
-                           
-                            <CheckboxGrid title="Tipo de Lesión Reclamada" options={TIPO_LESION_OPTIONS} selectedOptions={formData.coActor1.lesiones.tipoLesion} onCheckboxChange={(item, checked) => handleCheckboxChange('coActor1.lesiones.tipoLesion', item, checked)} />
-                            
-                            <CheckboxGrid title="Zonas Afectadas" options={ZONAS_CORPORALES} selectedOptions={formData.coActor1.lesiones.zonasAfectadas} onCheckboxChange={(item, checked) => handleCheckboxChange('coActor1.lesiones.zonasAfectadas', item, checked)} required error={getNestedValue(errors, 'coActor1.lesiones.zonasAfectadas')} />
-                            <InputField label="Otras Zonas" name="coActor1.lesiones.otrasZonasAfectadas" value={formData.coActor1.lesiones.otrasZonasAfectadas} onChange={handleInputChange} placeholder="Especifique otras zonas afectadas" className="md:col-span-2 lg:col-span-3"/>
-                            <CheckboxGrid title="Zonas de Radiografías" options={ZONAS_RADIOGRAFIAS} selectedOptions={formData.coActor1.lesiones.zonasRadiografias} onCheckboxChange={(item, checked) => handleCheckboxChange('coActor1.lesiones.zonasRadiografias', item, checked)} />
-                            <InputField label="Otras Radiografías" name="coActor1.lesiones.otrasZonasRadiografias" value={formData.coActor1.lesiones.otrasZonasRadiografias} onChange={handleInputChange} placeholder="Especifique otras zonas con radiografías" className="md:col-span-2 lg:col-span-3"/>
+                            <CheckboxGrid title="Zonas Afectadas" options={ZONAS_CORPORALES} selectedOptions={formData.cliente.lesiones.zonasAfectadas} onCheckboxChange={(item, checked) => handleCheckboxChange('cliente.lesiones.zonasAfectadas', item, checked)} required error={getNestedValue(errors, 'cliente.lesiones.zonasAfectadas')} />
+                            <InputField label="Otras Zonas" name="cliente.lesiones.otrasZonasAfectadas" value={formData.cliente.lesiones.otrasZonasAfectadas} onChange={handleInputChange} placeholder="Especifique otras zonas afectadas" className="md:col-span-2 lg:col-span-3" />
+                            <CheckboxGrid title="Zonas de Radiografías" options={ZONAS_RADIOGRAFIAS} selectedOptions={formData.cliente.lesiones.zonasRadiografias} onCheckboxChange={(item, checked) => handleCheckboxChange('cliente.lesiones.zonasRadiografias', item, checked)} />
+                            <InputField label="Otras Radiografías" name="cliente.lesiones.otrasZonasRadiografias" value={formData.cliente.lesiones.otrasZonasRadiografias} onChange={handleInputChange} placeholder="Especifique otras zonas con radiografías" className="md:col-span-2 lg:col-span-3" />
                         </Section>
-                    )}
 
-                    {/* Datos del Siniestro */}
-                    <Section title="Datos del Siniestro">
-                        <InputField label="Fecha del Hecho" name="siniestro.fechaHecho" type="date" value={formData.siniestro.fechaHecho} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.fechaHecho')} required />
-                        <InputField label="Hora Aproximada" name="siniestro.horaHecho" type="time" value={formData.siniestro.horaHecho} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.horaHecho')} required />
-                        <InputField label="Lugar del Hecho" name="siniestro.lugarHecho" value={formData.siniestro.lugarHecho} onChange={handleInputChange} onBlur={handleBlur} helpText="Ej: Av. Rivadavia y Av. Callao" error={getNestedValue(errors, 'siniestro.lugarHecho')} required />
-                        <InputField label="Calles" name="siniestro.calles" value={formData.siniestro.calles} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.calles')} />
-                        <AddressRow
-                            calleName="siniestro.calles"
-                            calleValue={formData.siniestro.calles || ''}
-                            onCalleChange={handleInputChange}
-                            calleError={getNestedValue(errors, 'siniestro.calles')}
+                        {/* Vehículo Actor Principal */}
+                        <Section title="Vehículo (Actor Principal)">
+                            <InputField label="Vehículo" name="vehiculoCliente.vehiculo" value={formData.vehiculoCliente.vehiculo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.vehiculo')} required />
+                            <InputField label="Dominio" name="vehiculoCliente.dominio" value={formData.vehiculoCliente.dominio} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.dominio')} required />
+                            <InputField label="Color del Auto" name="vehiculoCliente.color" value={formData.vehiculoCliente.color} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.color')} />
+                            <InputField label="Compañía de Seguros" name="vehiculoCliente.companiaSeguros" value={formData.vehiculoCliente.companiaSeguros} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.companiaSeguros')} />
+                            <InputField label="Número de Póliza" name="vehiculoCliente.numeroPoliza" value={formData.vehiculoCliente.numeroPoliza} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.numeroPoliza')} />
+                            <InputField label="Suma Asegurada" name="vehiculoCliente.sumaAsegurada" value={formData.vehiculoCliente.sumaAsegurada} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.sumaAsegurada')} />
+                            <InputField label="Franquicia" name="vehiculoCliente.franquicia" value={formData.vehiculoCliente.franquicia} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.franquicia')} />
+                        </Section>
 
-                            localidadName="siniestro.localidad"
-                            localidadValue={formData.siniestro.localidad || ''}
-                            onLocalidadChange={handleInputChange}
-                            localidadError={getNestedValue(errors, 'siniestro.localidad')}
+                        {/* Daños Materiales */}
+                        <Section title="Daños Materiales">
+                            <CheckboxGrid title="Daños del Vehículo del actor, especificar zona del impacto" options={DANOS_VEHICULO} selectedOptions={formData.danosMateriales.zonas} onCheckboxChange={(item, checked) => handleCheckboxChange('danosMateriales.zonas', item, checked)} />
+                            <InputField label="Otro" name="danosMateriales.otro" value={formData.danosMateriales.otro} onChange={handleInputChange} className="md:col-span-2 lg:col-span-3" />
+                        </Section>
 
-                            provinciaName="siniestro.provincia"
-                            provinciaValue={formData.siniestro.provincia || ''}
-                            onProvinciaChange={handleInputChange}
-                            provinciaError={getNestedValue(errors, 'siniestro.provincia')}
-                            className="md:col-span-3"
-                        />
-                        <SelectField label="Condiciones Climáticas" name="siniestro.condicionesClimaticas" value={formData.siniestro.condicionesClimaticas} onChange={handleInputChange} onBlur={handleBlur} options={CONDICIONES_CLIMATICAS_OPTIONS} error={getNestedValue(errors, 'siniestro.condicionesClimaticas')} />
-                        <SelectField label="Rol de los Protagonistas" name="siniestro.rolProtagonistas" value={formData.siniestro.rolProtagonistas} onChange={handleInputChange} onBlur={handleBlur} options={ROL_PROTAGONISTAS_OPTIONS} error={getNestedValue(errors, 'siniestro.rolProtagonistas')} />
-                        <SelectField label="Mecánica del Accidente" name="siniestro.mecanicaAccidente" value={formData.siniestro.mecanicaAccidente} onChange={handleInputChange} onBlur={handleBlur} options={MECANICA_ACCIDENTE_OPTIONS} error={getNestedValue(errors, 'siniestro.mecanicaAccidente')} className="lg:col-span-2" />
-                        
-                        {formData.siniestro.mecanicaAccidente === 'Otros' && (
-                            <InputField 
-                                label="Especifique otra mecánica" 
-                                name="siniestro.otraMecanica" 
-                                value={formData.siniestro.otraMecanica} 
-                                onChange={handleInputChange} 
-                                onBlur={handleBlur} 
-                                error={getNestedValue(errors, 'siniestro.otraMecanica')} 
-                                className="md:col-span-2 lg:col-span-3"
-                                as="textarea"
+                        {/* Titular Registral */}
+                        <Section title="Datos del Titular Registral">
+                            <InputField label="Nombre del Titular" name="titularCliente.nombre" value={formData.titularCliente.nombre} onChange={handleInputChange} />
+                            <InputField label="D.N.I. del Titular" name="titularCliente.dni" value={formData.titularCliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'titularCliente.dni')} />
+                            <InputField label="Fecha de Nacimiento del Titular" name="titularCliente.fechaNacimiento" type="date" value={formData.titularCliente.fechaNacimiento} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'titularCliente.fechaNacimiento')} />
+                            <SelectField label="Estado Civil" name="titularCliente.estadoCivil" value={formData.titularCliente.estadoCivil} onChange={handleInputChange} options={ESTADO_CIVIL_OPTIONS} />
+                            <InputField label="Nombre del Padre" name="titularCliente.nombrePadre" value={formData.titularCliente.nombrePadre} onChange={handleInputChange} />
+                            <InputField label="Nombre de la Madre" name="titularCliente.nombreMadre" value={formData.titularCliente.nombreMadre} onChange={handleInputChange} />
+                            <InputField label="Nombre del Cónyuge" name="titularCliente.nombreConyuge" value={formData.titularCliente.nombreConyuge} onChange={handleInputChange} helpText="Completar si es casado/a" />
+                            <AddressRow
+                                calleName="titularCliente.domicilio"
+                                calleValue={formData.titularCliente.domicilio || ''}
+                                onCalleChange={handleInputChange}
+                                calleError={getNestedValue(errors, 'titularCliente.domicilio')}
+
+                                localidadName="titularCliente.localidad"
+                                localidadValue={formData.titularCliente.localidad || ''}
+                                onLocalidadChange={handleInputChange}
+                                localidadError={getNestedValue(errors, 'titularCliente.localidad')}
+
+                                provinciaName="titularCliente.provincia"
+                                provinciaValue={formData.titularCliente.provincia || ''}
+                                onProvinciaChange={handleInputChange}
+                                provinciaError={getNestedValue(errors, 'titularCliente.provincia')}
+                                className="md:col-span-3"
+                                labelSuffix=" Del Titular"
                             />
+                        </Section>
+
+                        {/* Co-Actor (Opcional) */}
+                            <Section title="Datos del Co-Actor 1 (Opcional)" description="Completar solo si existe otro actor en el caso">
+                            <InputField label="D.N.I." name="coActor1.dni" value={formData.coActor1.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.dni')} />
+                            <InputField label="Nombre y Apellido" name="coActor1.nombreCompleto" value={formData.coActor1.nombreCompleto} onChange={handleInputChange} />
+                            <InputField label="Fecha de Nacimiento" name="coActor1.fechaNacimiento" type="date" value={formData.coActor1.fechaNacimiento} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.fechaNacimiento')} />
+                            <SelectField label="Estado Civil" name="coActor1.estadoCivil" value={formData.coActor1.estadoCivil} onChange={handleInputChange} options={ESTADO_CIVIL_OPTIONS} />
+                            <InputField label="Nombre del Padre" name="coActor1.nombrePadre" value={formData.coActor1.nombrePadre} onChange={handleInputChange} />
+                            <InputField label="Nombre de la Madre" name="coActor1.nombreMadre" value={formData.coActor1.nombreMadre} onChange={handleInputChange} />
+                            <InputField label="Nombre del Cónyuge" name="coActor1.nombreConyuge" value={formData.coActor1.nombreConyuge} onChange={handleInputChange} helpText="Completar si es casado/a" />
+                            <AddressRow
+                                calleName="coActor1.domicilio"
+                                calleValue={formData.coActor1.domicilio || ''}
+                                onCalleChange={handleInputChange}
+                                calleError={getNestedValue(errors, 'coActor1.domicilio')}
+
+                                localidadName="coActor1.localidad"
+                                localidadValue={formData.coActor1.localidad || ''}
+                                onLocalidadChange={handleInputChange}
+                                localidadError={getNestedValue(errors, 'coActor1.localidad')}
+
+                                provinciaName="coActor1.provincia"
+                                provinciaValue={formData.coActor1.provincia || ''}
+                                onProvinciaChange={handleInputChange}
+                                provinciaError={getNestedValue(errors, 'coActor1.provincia')}
+                                className="md:col-span-3"
+                            />
+                            <InputField label="Teléfono" name="coActor1.telefono" type="tel" value={formData.coActor1.telefono} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.telefono')} />
+
+                            <InputField label="Ocupación" name="coActor1.ocupacion" value={formData.coActor1.ocupacion} onChange={handleInputChange} />
+                            <InputField label="Sueldo Aproximado" name="coActor1.sueldo" value={formData.coActor1.sueldo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.sueldo')} />
+                            <InputField label="Lugar de Trabajo / Empresa" name="coActor1.lugarTrabajo" value={formData.coActor1.lugarTrabajo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.lugarTrabajo')} />
+                            <InputField label="ART" name="coActor1.art" value={formData.coActor1.art} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.art')} />
+                            <SelectField label="Vivienda" name="coActor1.vivienda" value={formData.coActor1.vivienda} onChange={handleInputChange} onBlur={handleBlur} options={VIVIENDA_OPTIONS} error={getNestedValue(errors, 'coActor1.vivienda')} />
+                            <InputField label="Cantidad de Hijos a Cargo" name="coActor1.hijosACargo" type="number" value={formData.coActor1.hijosACargo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.hijosACargo')} />
+                            <InputField label="Composición Familiar" name="coActor1.composicionFamiliar" value={formData.coActor1.composicionFamiliar} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.composicionFamiliar')} as="textarea" rows={2} className="md:col-span-3" />
+
+                            <InputField label="Mail" name="coActor1.mail" type="email" value={formData.coActor1.mail} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.mail')} />
+                            <InputField label="IG" name="coActor1.ig" value={formData.coActor1.ig} onChange={handleInputChange} onBlur={handleBlur} />
+
+                            <div className="md:col-span-2 lg:col-span-3 my-4 border-t border-slate-200"></div>
+                            <SelectField label="¿Posee Registro de Conducir?" name="coActor1.poseeRegistro" value={formData.coActor1.poseeRegistro} onChange={handleInputChange} onBlur={handleBlur} options={SI_NO_OPTIONS} />
+                            <InputField label="Vigencia del Registro" name="coActor1.vigenciaRegistro" type="date" value={formData.coActor1.vigenciaRegistro} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.vigenciaRegistro')} />
+                            <SelectField label="Categorías del Registro" name="coActor1.categoriasRegistro" value={formData.coActor1.categoriasRegistro} onChange={handleInputChange} options={CATEGORIAS_REGISTRO_OPTIONS} />
+                            <SelectField label="Rol en el Accidente" name="coActor1.rolAccidente" value={formData.coActor1.rolAccidente} onChange={handleInputChange} options={ROL_ACCIDENTE_OPTIONS} />
+                        </Section>
+
+                        {/* Lesiones Co-Actor (Condicional) */}
+                        {formData.coActor1.nombreCompleto.trim() !== '' && (
+                            <Section title={`Lesiones y Atención Médica de ${formData.coActor1.nombreCompleto}`} description={`Detalles de la atención médica y lesiones sufridas por el co-actor.`}>
+                                <InputField label="Centro Médico de Atención" name="coActor1.lesiones.centroMedico1" value={formData.coActor1.lesiones.centroMedico1} onChange={handleInputChange} />
+                                <InputField label="Segundo Centro Médico" name="coActor1.lesiones.centroMedico2" value={formData.coActor1.lesiones.centroMedico2} onChange={handleInputChange} />
+                                <SelectField label="Modo de Traslado" name="coActor1.lesiones.modoTraslado" value={formData.coActor1.lesiones.modoTraslado} onChange={handleInputChange} options={MODO_TRASLADO_OPTIONS} />
+                                <SelectField label="¿Fue Operado?" name="coActor1.lesiones.fueOperado" value={formData.coActor1.lesiones.fueOperado} onChange={handleInputChange} options={SI_NO_OPTIONS} />
+                                <SelectField label="¿Estuvo Internado?" name="coActor1.lesiones.estuvoInternado" value={formData.coActor1.lesiones.estuvoInternado} onChange={handleInputChange} options={SI_NO_OPTIONS} />
+
+                                <CheckboxGrid title="Tipo de Lesión Reclamada" options={TIPO_LESION_OPTIONS} selectedOptions={formData.coActor1.lesiones.tipoLesion} onCheckboxChange={(item, checked) => handleCheckboxChange('coActor1.lesiones.tipoLesion', item, checked)} />
+
+                                <CheckboxGrid title="Zonas Afectadas" options={ZONAS_CORPORALES} selectedOptions={formData.coActor1.lesiones.zonasAfectadas} onCheckboxChange={(item, checked) => handleCheckboxChange('coActor1.lesiones.zonasAfectadas', item, checked)} required error={getNestedValue(errors, 'coActor1.lesiones.zonasAfectadas')} />
+                                <InputField label="Otras Zonas" name="coActor1.lesiones.otrasZonasAfectadas" value={formData.coActor1.lesiones.otrasZonasAfectadas} onChange={handleInputChange} placeholder="Especifique otras zonas afectadas" className="md:col-span-2 lg:col-span-3" />
+                                <CheckboxGrid title="Zonas de Radiografías" options={ZONAS_RADIOGRAFIAS} selectedOptions={formData.coActor1.lesiones.zonasRadiografias} onCheckboxChange={(item, checked) => handleCheckboxChange('coActor1.lesiones.zonasRadiografias', item, checked)} />
+                                <InputField label="Otras Radiografías" name="coActor1.lesiones.otrasZonasRadiografias" value={formData.coActor1.lesiones.otrasZonasRadiografias} onChange={handleInputChange} placeholder="Especifique otras zonas con radiografías" className="md:col-span-2 lg:col-span-3" />
+                            </Section>
                         )}
-                        
-                        <div className="md:col-span-3 my-4 border-t border-slate-200"></div>
 
-                        <div className="md:col-span-3">
-                            <h3 className="text-lg font-semibold text-slate-700 mb-2">Narración de los Hechos</h3>
-                            <div className="text-sm text-sky-700 bg-sky-100 p-3 rounded-md mb-4" role="alert">
-                                <p><strong>Recordatorio:</strong> Al grabar, no olvide preguntar y describir el sentido de circulación de los vehículos involucrados.</p>
-                            </div>
-                            <AudioRecorder 
-                                name="siniestro.narracionHechos"
-                                value={formData.siniestro.narracionHechos}
-                                onChange={handleInputChange}
+                        {/* Datos del Siniestro */}
+                        <Section title="Datos del Siniestro">
+                            <InputField label="Fecha del Hecho" name="siniestro.fechaHecho" type="date" value={formData.siniestro.fechaHecho} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.fechaHecho')} required />
+                            <InputField label="Hora Aproximada" name="siniestro.horaHecho" type="time" value={formData.siniestro.horaHecho} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.horaHecho')} required />
+                            <InputField label="Lugar del Hecho" name="siniestro.lugarHecho" value={formData.siniestro.lugarHecho} onChange={handleInputChange} onBlur={handleBlur} helpText="Ej: Av. Rivadavia y Av. Callao" error={getNestedValue(errors, 'siniestro.lugarHecho')} required />
+                            <InputField label="Calles" name="siniestro.calles" value={formData.siniestro.calles} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.calles')} />
+                            <AddressRow
+                                calleName="siniestro.calles"
+                                calleValue={formData.siniestro.calles || ''}
+                                onCalleChange={handleInputChange}
+                                calleError={getNestedValue(errors, 'siniestro.calles')}
+
+                                localidadName="siniestro.localidad"
+                                localidadValue={formData.siniestro.localidad || ''}
+                                onLocalidadChange={handleInputChange}
+                                localidadError={getNestedValue(errors, 'siniestro.localidad')}
+
+                                provinciaName="siniestro.provincia"
+                                provinciaValue={formData.siniestro.provincia || ''}
+                                onProvinciaChange={handleInputChange}
+                                provinciaError={getNestedValue(errors, 'siniestro.provincia')}
+                                className="md:col-span-3"
                             />
-                        </div>
+                            <SelectField label="Condiciones Climáticas" name="siniestro.condicionesClimaticas" value={formData.siniestro.condicionesClimaticas} onChange={handleInputChange} onBlur={handleBlur} options={CONDICIONES_CLIMATICAS_OPTIONS} error={getNestedValue(errors, 'siniestro.condicionesClimaticas')} />
+                            <SelectField label="Rol de los Protagonistas" name="siniestro.rolProtagonistas" value={formData.siniestro.rolProtagonistas} onChange={handleInputChange} onBlur={handleBlur} options={ROL_PROTAGONISTAS_OPTIONS} error={getNestedValue(errors, 'siniestro.rolProtagonistas')} />
+                            <SelectField label="Mecánica del Accidente" name="siniestro.mecanicaAccidente" value={formData.siniestro.mecanicaAccidente} onChange={handleInputChange} onBlur={handleBlur} options={MECANICA_ACCIDENTE_OPTIONS} error={getNestedValue(errors, 'siniestro.mecanicaAccidente')} className="lg:col-span-2" />
 
-                        <div className="md:col-span-3 my-4 border-t border-slate-200"></div>
-                        
-                        <SelectField 
-                            label="Actuaciones Penales" 
-                            name="siniestro.actuacionesPenales" 
-                            value={formData.siniestro.actuacionesPenales} 
-                            onChange={handleInputChange} 
-                            onBlur={handleBlur} 
-                            options={ACTUACIONES_PENALES_OPTIONS} 
-                            error={getNestedValue(errors, 'siniestro.actuacionesPenales')}
-                        />
-                        <InputField label="Comisaría Interviniente" name="siniestro.comisaria" value={formData.siniestro.comisaria} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.comisaria')} />
-                        <InputField label="Nº de Causa Penal" name="siniestro.causaPenal" value={formData.siniestro.causaPenal} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.causaPenal')} />
-                    </Section>
+                            {formData.siniestro.mecanicaAccidente === 'Otros' && (
+                                <InputField
+                                    label="Especifique otra mecánica"
+                                    name="siniestro.otraMecanica"
+                                    value={formData.siniestro.otraMecanica}
+                                    onChange={handleInputChange}
+                                    onBlur={handleBlur}
+                                    error={getNestedValue(errors, 'siniestro.otraMecanica')}
+                                    className="md:col-span-2 lg:col-span-3"
+                                    as="textarea"
+                                />
+                            )}
 
-                    {/* Datos de los Demandados */}
-                    <Section title="Datos de los Demandados" description="Información de los terceros involucrados en el siniestro.">
-                       <DemandadosSectionComponent
-                            basePath="demandados"
-                            data={formData.demandados}
-                            errors={errors}
-                            handleInputChange={handleInputChange}
-                            handleCheckboxChange={handleCheckboxChange}
-                            handleBlur={handleBlur}
-                        />
-                    </Section>
+                            <div className="md:col-span-3 my-4 border-t border-slate-200"></div>
 
-                    {!formData.tercerVehiculoDemandado ? (
-                        <div className="my-6 flex justify-center">
-                            <button
-                                type="button"
-                                onClick={addThirdVehicle}
-                                className="inline-flex items-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                                </svg>
-                                Agregar Tercer Vehículo Involucrado
-                            </button>
-                        </div>
-                    ) : null}
+                            <div className="md:col-span-3">
+                                <h3 className="text-lg font-semibold text-slate-700 mb-2">Narración de los Hechos</h3>
+                                <div className="text-sm text-sky-700 bg-sky-100 p-3 rounded-md mb-4" role="alert">
+                                    <p><strong>Recordatorio:</strong> Al grabar, no olvide preguntar y describir el sentido de circulación de los vehículos involucrados.</p>
+                                </div>
+                                <AudioRecorder
+                                    name="siniestro.narracionHechos"
+                                    value={formData.siniestro.narracionHechos}
+                                    onChange={handleInputChange}
+                                />
+                            </div>
 
-                    {formData.tercerVehiculoDemandado && (
-                        <Section title="Datos del Tercer Vehículo Involucrado">
-                             <DemandadosSectionComponent
-                                basePath="tercerVehiculoDemandado"
-                                data={formData.tercerVehiculoDemandado}
+                            <div className="md:col-span-3 my-4 border-t border-slate-200"></div>
+
+                            <SelectField
+                                label="Actuaciones Penales"
+                                name="siniestro.actuacionesPenales"
+                                value={formData.siniestro.actuacionesPenales}
+                                onChange={handleInputChange}
+                                onBlur={handleBlur}
+                                options={ACTUACIONES_PENALES_OPTIONS}
+                                error={getNestedValue(errors, 'siniestro.actuacionesPenales')}
+                            />
+                            <InputField label="Comisaría Interviniente" name="siniestro.comisaria" value={formData.siniestro.comisaria} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.comisaria')} />
+                            <InputField label="Nº de Causa Penal" name="siniestro.causaPenal" value={formData.siniestro.causaPenal} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.causaPenal')} />
+                        </Section>
+
+                        {/* Datos de los Demandados */}
+                        <Section title="Datos de los Demandados" description="Información de los terceros involucrados en el siniestro.">
+                            <DemandadosSectionComponent
+                                basePath="demandados"
+                                data={formData.demandados}
                                 errors={errors}
                                 handleInputChange={handleInputChange}
                                 handleCheckboxChange={handleCheckboxChange}
                                 handleBlur={handleBlur}
                             />
-                            <div className="md:col-span-3 mt-6 text-right">
-                                 <button
-                                    type="button"
-                                    onClick={removeThirdVehicle}
-                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                                >
-                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
-                                    </svg>
-                                    Eliminar Tercer Vehículo
-                                </button>
-                            </div>
                         </Section>
-                    )}
-                    
-                    {/* Testigos Presenciales */}
-                    <Section title="Testigos Presenciales">
-                        <TestigoSubSection title="Testigo 1">
-                            <InputField label="Nombre y Apellido" name="testigos.testigo1.nombreApellido" value={formData.testigos.testigo1.nombreApellido} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'testigos.testigo1.nombreApellido')} />
-                            <InputField label="D.N.I." name="testigos.testigo1.dni" value={formData.testigos.testigo1.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'testigos.testigo1.dni')} />
-                            <AddressRow
-                                calleName="testigos.testigo1.domicilio"
-                                calleValue={formData.testigos.testigo1.domicilio || ''}
-                                onCalleChange={handleInputChange}
-                                calleError={getNestedValue(errors, 'testigos.testigo1.domicilio')}
 
-                                localidadName="testigos.testigo1.localidad"
-                                localidadValue={formData.testigos.testigo1.localidad || ''}
-                                onLocalidadChange={handleInputChange}
-                                localidadError={getNestedValue(errors, 'testigos.testigo1.localidad')}
-
-                                provinciaName="testigos.testigo1.provincia"
-                                provinciaValue={formData.testigos.testigo1.provincia || ''}
-                                onProvinciaChange={handleInputChange}
-                                provinciaError={getNestedValue(errors, 'testigos.testigo1.provincia')}
-                                className="md:col-span-2 lg:col-span-2"
-                            />
-                            <SelectField label="Rol" name="testigos.testigo1.rol" value={formData.testigos.testigo1.rol} onChange={handleInputChange} onBlur={handleBlur} options={ROL_TESTIGO_OPTIONS} error={getNestedValue(errors, 'testigos.testigo1.rol')} />
-                        </TestigoSubSection>
-                        <TestigoSubSection title="Testigo 2">
-                            <InputField label="Nombre y Apellido" name="testigos.testigo2.nombreApellido" value={formData.testigos.testigo2.nombreApellido} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'testigos.testigo2.nombreApellido')} />
-                            <InputField label="D.N.I." name="testigos.testigo2.dni" value={formData.testigos.testigo2.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'testigos.testigo2.dni')} />
-                            <AddressRow
-                                calleName="testigos.testigo2.domicilio"
-                                calleValue={formData.testigos.testigo2.domicilio || ''}
-                                onCalleChange={handleInputChange}
-                                calleError={getNestedValue(errors, 'testigos.testigo2.domicilio')}
-
-                                localidadName="testigos.testigo2.localidad"
-                                localidadValue={formData.testigos.testigo2.localidad || ''}
-                                onLocalidadChange={handleInputChange}
-                                localidadError={getNestedValue(errors, 'testigos.testigo2.localidad')}
-
-                                provinciaName="testigos.testigo2.provincia"
-                                provinciaValue={formData.testigos.testigo2.provincia || ''}
-                                onProvinciaChange={handleInputChange}
-                                provinciaError={getNestedValue(errors, 'testigos.testigo2.provincia')}
-                                className="md:col-span-2 lg:col-span-2"
-                            />
-                            <SelectField label="Rol" name="testigos.testigo2.rol" value={formData.testigos.testigo2.rol} onChange={handleInputChange} onBlur={handleBlur} options={ROL_TESTIGO_OPTIONS} error={getNestedValue(errors, 'testigos.testigo2.rol')} />
-                        </TestigoSubSection>
-                    </Section>
-
-                    {/* Clasificación Final del Caso */}
-                    <Section title="Clasificación Final del Caso">
-                        <SelectField
-                            label="Clasificación Área Policial"
-                            name="clasificacionFinal.areaPolicial"
-                            value={formData.clasificacionFinal.areaPolicial}
-                            onChange={handleInputChange}
-                            onBlur={handleBlur}
-                            options={ACTUACIONES_PENALES_OPTIONS}
-                            error={getNestedValue(errors, 'clasificacionFinal.areaPolicial')}
-                        />
-                        <SelectField
-                            label="Clasificación Lesiones"
-                            name="clasificacionFinal.lesiones"
-                            value={formData.clasificacionFinal.lesiones}
-                            onChange={handleInputChange}
-                            onBlur={handleBlur}
-                            options={CLASIFICACION_LESIONES_OPTIONS}
-                            error={getNestedValue(errors, 'clasificacionFinal.lesiones')}
-                        />
-                        <SelectField
-                            label="Tipo de Reclamo"
-                            name="clasificacionFinal.reclamo"
-                            value={formData.clasificacionFinal.reclamo}
-                            onChange={handleInputChange}
-                            onBlur={handleBlur}
-                            options={TIPO_RECLAMO_OPTIONS}
-                            error={getNestedValue(errors, 'clasificacionFinal.reclamo')}
-                        />
-                    </Section>
-
-                     <div className="sticky bottom-0 bg-white/80 backdrop-blur-sm py-4 mt-8 -mx-8 px-8 border-t border-slate-200 z-10">
-                        <div className="flex justify-end space-x-4">
-                            {editingCaseId && (
+                        {!formData.tercerVehiculoDemandado ? (
+                            <div className="my-6 flex justify-center">
                                 <button
                                     type="button"
-                                    onClick={cancelEdit}
-                                    className="inline-flex justify-center py-3 px-6 border border-slate-300 shadow-lg text-base font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                    onClick={addThirdVehicle}
+                                    className="inline-flex items-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                 >
-                                    Cancelar
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                                    </svg>
+                                    Agregar Tercer Vehículo Involucrado
                                 </button>
-                            )}
-                            <button
-                                type="submit"
-                                className="inline-flex justify-center py-3 px-6 border border-transparent shadow-lg textBase font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-105"
-                            >
-                                {editingCaseId ? 'Actualizar Caso' : 'Ingresar Caso'}
-                            </button>
+                            </div>
+                        ) : null}
+
+                        {formData.tercerVehiculoDemandado && (
+                            <Section title="Datos del Tercer Vehículo Involucrado">
+                                <DemandadosSectionComponent
+                                    basePath="tercerVehiculoDemandado"
+                                    data={formData.tercerVehiculoDemandado}
+                                    errors={errors}
+                                    handleInputChange={handleInputChange}
+                                    handleCheckboxChange={handleCheckboxChange}
+                                    handleBlur={handleBlur}
+                                />
+                                <div className="md:col-span-3 mt-6 text-right">
+                                    <button
+                                        type="button"
+                                        onClick={removeThirdVehicle}
+                                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                                        </svg>
+                                        Eliminar Tercer Vehículo
+                                    </button>
+                                </div>
+                            </Section>
+                        )}
+
+                        {/* Testigos Presenciales */}
+                        <Section title="Testigos Presenciales">
+                            <TestigoSubSection title="Testigo 1">
+                                <InputField label="Nombre y Apellido" name="testigos.testigo1.nombreApellido" value={formData.testigos.testigo1.nombreApellido} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'testigos.testigo1.nombreApellido')} />
+                                <InputField label="D.N.I." name="testigos.testigo1.dni" value={formData.testigos.testigo1.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'testigos.testigo1.dni')} />
+                                <AddressRow
+                                    calleName="testigos.testigo1.domicilio"
+                                    calleValue={formData.testigos.testigo1.domicilio || ''}
+                                    onCalleChange={handleInputChange}
+                                    calleError={getNestedValue(errors, 'testigos.testigo1.domicilio')}
+
+                                    localidadName="testigos.testigo1.localidad"
+                                    localidadValue={formData.testigos.testigo1.localidad || ''}
+                                    onLocalidadChange={handleInputChange}
+                                    localidadError={getNestedValue(errors, 'testigos.testigo1.localidad')}
+
+                                    provinciaName="testigos.testigo1.provincia"
+                                    provinciaValue={formData.testigos.testigo1.provincia || ''}
+                                    onProvinciaChange={handleInputChange}
+                                    provinciaError={getNestedValue(errors, 'testigos.testigo1.provincia')}
+                                    className="md:col-span-2 lg:col-span-2"
+                                />
+                                <SelectField label="Rol" name="testigos.testigo1.rol" value={formData.testigos.testigo1.rol} onChange={handleInputChange} onBlur={handleBlur} options={ROL_TESTIGO_OPTIONS} error={getNestedValue(errors, 'testigos.testigo1.rol')} />
+                            </TestigoSubSection>
+                            <TestigoSubSection title="Testigo 2">
+                                <InputField label="Nombre y Apellido" name="testigos.testigo2.nombreApellido" value={formData.testigos.testigo2.nombreApellido} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'testigos.testigo2.nombreApellido')} />
+                                <InputField label="D.N.I." name="testigos.testigo2.dni" value={formData.testigos.testigo2.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'testigos.testigo2.dni')} />
+                                <AddressRow
+                                    calleName="testigos.testigo2.domicilio"
+                                    calleValue={formData.testigos.testigo2.domicilio || ''}
+                                    onCalleChange={handleInputChange}
+                                    calleError={getNestedValue(errors, 'testigos.testigo2.domicilio')}
+
+                                    localidadName="testigos.testigo2.localidad"
+                                    localidadValue={formData.testigos.testigo2.localidad || ''}
+                                    onLocalidadChange={handleInputChange}
+                                    localidadError={getNestedValue(errors, 'testigos.testigo2.localidad')}
+
+                                    provinciaName="testigos.testigo2.provincia"
+                                    provinciaValue={formData.testigos.testigo2.provincia || ''}
+                                    onProvinciaChange={handleInputChange}
+                                    provinciaError={getNestedValue(errors, 'testigos.testigo2.provincia')}
+                                    className="md:col-span-2 lg:col-span-2"
+                                />
+                                <SelectField label="Rol" name="testigos.testigo2.rol" value={formData.testigos.testigo2.rol} onChange={handleInputChange} onBlur={handleBlur} options={ROL_TESTIGO_OPTIONS} error={getNestedValue(errors, 'testigos.testigo2.rol')} />
+                            </TestigoSubSection>
+                        </Section>
+
+                        {/* Clasificación Final del Caso */}
+                        <Section title="Clasificación Final del Caso">
+                            <SelectField
+                                label="Clasificación Área Policial"
+                                name="clasificacionFinal.areaPolicial"
+                                value={formData.clasificacionFinal.areaPolicial}
+                                onChange={handleInputChange}
+                                onBlur={handleBlur}
+                                options={ACTUACIONES_PENALES_OPTIONS}
+                                error={getNestedValue(errors, 'clasificacionFinal.areaPolicial')}
+                            />
+                            <SelectField
+                                label="Clasificación Lesiones"
+                                name="clasificacionFinal.lesiones"
+                                value={formData.clasificacionFinal.lesiones}
+                                onChange={handleInputChange}
+                                onBlur={handleBlur}
+                                options={CLASIFICACION_LESIONES_OPTIONS}
+                                error={getNestedValue(errors, 'clasificacionFinal.lesiones')}
+                            />
+                            <SelectField
+                                label="Tipo de Reclamo"
+                                name="clasificacionFinal.reclamo"
+                                value={formData.clasificacionFinal.reclamo}
+                                onChange={handleInputChange}
+                                onBlur={handleBlur}
+                                options={TIPO_RECLAMO_OPTIONS}
+                                error={getNestedValue(errors, 'clasificacionFinal.reclamo')}
+                            />
+                        </Section>
+
+                        <div className="sticky bottom-0 bg-white/80 backdrop-blur-sm py-4 mt-8 -mx-8 px-8 border-t border-slate-200 z-10">
+                            <div className="flex justify-end space-x-4">
+                                {editingCaseId && (
+                                    <button
+                                        type="button"
+                                        onClick={cancelEdit}
+                                        className="inline-flex justify-center py-3 px-6 border border-slate-300 shadow-lg text-base font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                    >
+                                        Cancelar
+                                    </button>
+                                )}
+                                <button
+                                    type="submit"
+                                    className="inline-flex justify-center py-3 px-6 border border-transparent shadow-lg textBase font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-105"
+                                >
+                                    {editingCaseId ? 'Actualizar Caso' : 'Ingresar Caso'}
+                                </button>
+                            </div>
                         </div>
-                    </div>
                     </form>
                 ) : view === 'setup' ? (
                     // Simple placeholder views for setup sections. You can replace these with full components later.
@@ -974,7 +1097,7 @@ function App() {
                             </Section>
                         )}
                         {setupSection === 'contactos' && (
-                                <Contactos />
+                            <Contactos />
                         )}
                         {setupSection === 'marcas' && (
                             <Section title="Setup — Marcas">
