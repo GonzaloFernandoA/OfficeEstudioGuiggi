@@ -61,6 +61,9 @@ const Ingreso: React.FC = () => {
     const [convenioText, setConvenioText] = useState<string | null>(null);
     const [showConvenioModal, setShowConvenioModal] = useState(false);
 
+    // Estado para el botón "Convenio" (habilitado/deshabilitado)
+    const [isSaved, setIsSaved] = useState(false);
+
     // Validación
     const validateForm = (): boolean => {
         const newErrors: Record<string, string> = {};
@@ -120,6 +123,7 @@ const Ingreso: React.FC = () => {
     // Handlers
     const handleSiniestroChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
+        setIsSaved(false); // Resetear estado al cambiar datos
         setFormData(prev => ({
             ...prev,
             siniestro: { ...prev.siniestro, [name]: value }
@@ -131,6 +135,7 @@ const Ingreso: React.FC = () => {
         e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
     ) => {
         const { name, value } = e.target;
+        setIsSaved(false); // Resetear estado al cambiar datos
         setFormData(prev => ({
             ...prev,
             damnificados: prev.damnificados.map((d, i) =>
@@ -344,14 +349,10 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
             }
 
             setMessage({ type: 'success', text: '✅ Siniestro y damnificados grabados exitosamente.' });
+            setIsSaved(true); // Marcar como guardado para habilitar el botón de convenio
 
-            // Resetear formulario después de envío exitoso
-            setFormData({
-                siniestro: emptySiniestro(),
-                damnificados: [emptyDamnificado()],
-            });
-
-            // Limpiar errores
+            // NO resetear formulario, mantener los datos en los controles.
+            // Limpiar solo los errores.
             setErrors({});
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Error desconocido al enviar el ingreso.';
@@ -443,7 +444,8 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                                 <button
                                     type="button"
                                     onClick={() => handleGenerarConvenio(index)}
-                                    className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    disabled={!isSaved}
+                                    className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-slate-400 disabled:cursor-not-allowed"
                                 >
                                     Convenio
                                 </button>
@@ -527,6 +529,7 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                         });
                         setErrors({});
                         setMessage(null);
+                        setIsSaved(false); // Deshabilitar convenio al limpiar
                     }}
                     className="px-6 py-3 border border-slate-300 shadow-lg text-base font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50"
                 >
