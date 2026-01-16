@@ -38,6 +38,57 @@ const toRecordIdArray = (id: string): string[] => {
 };
 
 /**
+ * Interfaz para datos de Ingreso (Siniestro)
+ */
+interface IngresoFormData {
+    siniestro: {
+        fecha: string;
+        hora: string;
+        calle: string;
+        localidad: string;
+        provincia: string;
+        descripcion: string;
+    };
+    damnificados: {
+        nombre: string;
+        apellido: string;
+        dni: string;
+        calle: string;
+        localidad: string;
+        provincia: string;
+    }[];
+}
+
+/**
+ * Normaliza datos de Ingreso (Siniestro) para envío al servidor
+ * Transforma provincias a IDs y calle a arrays si es necesario
+ */
+export const normalizeSiniestroData = (formData: IngresoFormData): Record<string, any> => {
+    const siniestroPayload = {
+        fecha: formData.siniestro.fecha.trim(),
+        hora: formData.siniestro.hora.trim(),
+        calle: formData.siniestro.calle.trim(),
+        localidad: formData.siniestro.localidad.trim(),
+        provincia: toRecordIdArray(resolveProvinciaId(formData.siniestro.provincia)),
+        descripcion: formData.siniestro.descripcion.trim(),
+    };
+
+    const damnificadosPayload = formData.damnificados.map(d => ({
+        nombre: d.nombre.trim(),
+        apellido: d.apellido.trim(),
+        dni: d.dni.trim(),
+        calle: d.calle.trim(),
+        localidad: d.localidad.trim(),
+        provincia: toRecordIdArray(resolveProvinciaId(d.provincia)),
+    }));
+
+    return {
+        ...siniestroPayload,
+        damnificados: damnificadosPayload,
+    };
+};
+
+/**
  * Normaliza datos de caso para envío al servidor
  * Estructura esperada: cliente: {..}, siniestro: {...}, demandados: {...}
  */

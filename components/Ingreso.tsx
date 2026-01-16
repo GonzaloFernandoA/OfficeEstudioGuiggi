@@ -5,7 +5,7 @@ import ProvinciaSelect from './ProvinciaSelect';
 import AddressRow from './AddressRow';
 import { geographicService } from '../services/geographicService';
 import { apiClient } from '../services/apiClient';
-import { resolveProvinciaId, toRecordIdArray } from '../services/jsonService';
+import { normalizeSiniestroData } from '../services/jsonService';
 
 interface Siniestro {
     fecha: string;
@@ -283,42 +283,12 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
         setMessage(null);
 
         try {
-            // Preparar el JSON para enviar
-            const siniestroPayload = {
-                fecha: formData.siniestro.fecha.trim(),
-                hora: formData.siniestro.hora.trim(),
-                calle: formData.siniestro.calle.trim(),
-                localidad: formData.siniestro.localidad.trim(),
-                provincia: toRecordIdArray(resolveProvinciaId(formData.siniestro.provincia)), // 👈 array
-                descripcion: formData.siniestro.descripcion.trim(),
-            };
-
-            const damnificadosPayload = formData.damnificados.map(d => ({
-                nombre: d.nombre.trim(),
-                apellido: d.apellido.trim(),
-                dni: d.dni.trim(),
-                calle: d.calle.trim(),
-                localidad: d.localidad.trim(),
-                provincia: toRecordIdArray(resolveProvinciaId(d.provincia)), // 👈 array
-            }));
-
-            const payload = {
-                ...siniestroPayload,
-                damnificados: damnificadosPayload,
-            };
+            // Preparar y normalizar el JSON usando función compartida
+            const payload = normalizeSiniestroData(formData);
 
             console.log('JSON enviado:', JSON.stringify(payload, null, 2));
-            // Para depuración, mostrar resolución de nombres a ids cuando haya diferencias
-                try {
-                    const originalProv = formData.siniestro.provincia;
-                    const resolvedProv = siniestroPayload.provincia;
-                    if (originalProv && originalProv !== resolvedProv) {
-                        console.log(`Provincia siniestro resuelta: "${originalProv}" -> "${resolvedProv}"`);
-                    }
-                } catch (e) { /* ignore */ }
 
-
-            // Enviar JSON al backend (objeto, no array)
+            // Enviar JSON al backend
             const response = await apiClient.post('/siniestro', payload);
 
             if (response.error) {
