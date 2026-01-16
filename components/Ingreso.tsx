@@ -5,6 +5,7 @@ import ProvinciaSelect from './ProvinciaSelect';
 import AddressRow from './AddressRow';
 import { geographicService } from '../services/geographicService';
 import { apiClient } from '../services/apiClient';
+import { resolveProvinciaId, toRecordIdArray } from '../services/jsonService';
 
 interface Siniestro {
     fecha: string;
@@ -200,11 +201,6 @@ const Ingreso: React.FC = () => {
         return dateStr; // si no se puede formatear, devolver original
     };
 
-    const toRecordIdArray = (id: string) => {
-        const v = (id || '').trim();
-        return v ? [v] : [];
-    };
-
     // Función que abre una nueva ventana con el convenio listo para imprimir
     const handlePrintConvenio = (text: string) => {
         const w = window.open('', '_blank');
@@ -288,20 +284,6 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
 
         try {
             // Preparar el JSON para enviar
-                const resolveProvinciaId = (val: string) => {
-                    const v = (val || '').trim();
-                    if (!v) return '';
-                    // If it's already an id
-                    if (geographicService.getProvinciaById(v)) return v;
-                    // Try to find by nombre (case-insensitive)
-                    const found = (geographicService.getProvincias() || []).find(p => String(p.nombre || '').toLowerCase() === v.toLowerCase());
-                    if (found) return found.id;
-                    // As fallback, also try slugifying the name to match API behavior
-                    const slug = String(v).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                    if (geographicService.getProvinciaById(slug)) return slug;
-                    return v; // leave as-is if not resolvable
-                };
-
             const siniestroPayload = {
                 fecha: formData.siniestro.fecha.trim(),
                 hora: formData.siniestro.hora.trim(),

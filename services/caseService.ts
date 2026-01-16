@@ -1,6 +1,6 @@
 import type { FormDataState } from '../types';
-
-const CASO_API_URL = 'https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/caso';
+import { apiClient } from './apiClient';
+import { normalizeCaseData } from './jsonService';
 
 interface CaseSubmissionResponse {
   success: boolean;
@@ -11,30 +11,21 @@ interface CaseSubmissionResponse {
 
 /**
  * Envía un caso al servidor
+ * Utiliza el mismo apiClient que Ingreso para consistencia
  * Estructura anidada: cliente: {..}, siniestro: {...}, demandados: {...}
- * Arrays van como arrays, strings como strings
  */
 export const submitCase = async (caseData: FormDataState): Promise<CaseSubmissionResponse> => {
   try {
-    const response = await fetch(CASO_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(caseData),
-    });
+    const normalizedData = normalizeCaseData(caseData);
+    const response = await apiClient.post<any>('/caso', normalizedData);
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message || `Error ${response.status}: ${response.statusText}`
-      );
+    if (response.error) {
+      throw new Error(response.error);
     }
 
-    const data = await response.json();
     return {
       success: true,
-      ...data,
+      ...response.data,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Error desconocido al enviar el caso';
