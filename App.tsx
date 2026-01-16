@@ -32,6 +32,7 @@ import {
 } from './constants';
 
 import { geographicService } from './services/geographicService';
+import { submitCase, validateCaseForSubmission } from './services/caseService';
 import ProvinciaSelect from './components/ProvinciaSelect';
 
 
@@ -637,17 +638,48 @@ function App() {
                 // Update existing case
                 setCases(prevCases => prevCases.map(c => c.id === editingCaseId ? { ...formData, id: editingCaseId } : c));
                 alert("Caso actualizado con éxito.");
+                setFormData(initialState);
+                setErrors({});
+                setEditingCaseId(null);
+                setView('dashboard');
             } else {
-                // Create new case
-                const newCase: FormDataState = { ...formData, id: Date.now() };
-                setCases(prevCases => [...prevCases, newCase]);
-                alert("Caso ingresado con éxito.");
-            }
+                // Create new case - Submit to server
+                const validation = validateCaseForSubmission(formData);
+                if (!validation.valid) {
+                    alert("Error de validación:\n" + validation.errors.join('\n'));
+                    return;
+                }
 
-            setFormData(initialState);
-            setErrors({});
-            setEditingCaseId(null);
-            setView('dashboard');
+                // Show loading state
+                const submitButton = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.textContent = 'Enviando...';
+                }
+
+                // Send to server
+                submitCase(formData).then(response => {
+                    if (response.success) {
+                        // Save locally
+                        const newCase: FormDataState = { ...formData, id: Date.now() };
+                        setCases(prevCases => [...prevCases, newCase]);
+                        alert("Caso ingresado con éxito. ID: " + (response.caseId || newCase.id));
+                        setFormData(initialState);
+                        setErrors({});
+                        setEditingCaseId(null);
+                        setView('dashboard');
+                    } else {
+                        alert("Error al enviar el caso: " + (response.error || 'Error desconocido'));
+                    }
+                }).catch(err => {
+                    alert("Error de red: " + err.message);
+                }).finally(() => {
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Ingresar Caso';
+                    }
+                });
+            }
         } else {
             alert("Por favor, corrija los errores marcados en el formulario.");
         }
