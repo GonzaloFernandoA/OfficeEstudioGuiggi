@@ -636,6 +636,7 @@ function App() {
 
         // 1. Validación original
         if (!validateForm()) {
+            alert("Por favor, corrija los errores marcados en el formulario.");
             return;
         }
 
@@ -666,6 +667,7 @@ function App() {
             setErrors({});
             setEditingCaseId(null);
             alert("El caso se ha creado correctamente.");
+            setView('dashboard');
 
         } catch (error) {
             console.error('Error al guardar:', error);

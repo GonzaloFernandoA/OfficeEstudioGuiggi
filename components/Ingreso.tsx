@@ -353,6 +353,8 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
 
             // Limpiar errores
             setErrors({});
+            alert("El caso se ha creado correctamente.");
+
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Error desconocido al enviar el ingreso.';
             setMessage({ type: 'error', text: `❌ ${errorMessage}` });
