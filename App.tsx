@@ -37,6 +37,7 @@ import ProvinciaSelect from './components/ProvinciaSelect';
 
 const PROVINCIAS_API_URL = 'https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/provincias';
 const CLIENTE_API_URL = 'https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/cliente';
+const CASOS_API_URL = 'https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/caso';
 
 const initialLesionesState: Lesiones = {
     centroMedico1: '', centroMedico2: '', modoTraslado: '', fueOperado: '', estuvoInternado: '',
@@ -630,29 +631,47 @@ function App() {
         setView('setup');
     }
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (validateForm()) {
-            if (editingCaseId) {
-                // Update existing case
-                setCases(prevCases => prevCases.map(c => c.id === editingCaseId ? { ...formData, id: editingCaseId } : c));
-                alert("Caso actualizado con éxito.");
-            } else {
-                // Create new case
-                const newCase: FormDataState = { ...formData, id: Date.now() };
-                setCases(prevCases => [...prevCases, newCase]);
-                alert("Caso ingresado con éxito.");
+
+        // 1. Validación original
+        if (!validateForm()) {
+            return;
+        }
+
+        try {
+            // 2. Envío a través del PROXY (CASOS_API_URL es '/api-casos/caso')
+            const response = await fetch(CASOS_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error servidor: ${response.status}`);
             }
 
+            const result = await response.json();
+
+            // 3. Lógica de éxito
+            const newCase: FormDataState = {
+                ...formData,
+                id: result.id || Date.now(),
+            };
+
+            setCases(prev => [...prev, newCase]);
             setFormData(initialState);
             setErrors({});
             setEditingCaseId(null);
-            setView('dashboard');
-        } else {
-            alert("Por favor, corrija los errores marcados en el formulario.");
+            alert("El caso se ha creado correctamente.");
+
+        } catch (error) {
+            console.error('Error al guardar:', error);
+            alert("Error al conectar con el servidor a través del proxy.");
         }
     };
-
     const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         const error = validateField(name, value);
