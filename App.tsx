@@ -221,6 +221,7 @@ function useAutofillByDni(
     basePath: 'cliente' | 'coActor1' | 'titularCliente',
     formData: FormDataState,
     setFormData: React.Dispatch<React.SetStateAction<FormDataState>>,
+    isEditing: boolean = false
 ) {
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState('');
@@ -231,6 +232,13 @@ function useAutofillByDni(
     const dni = String((formData as any)?.[basePath]?.dni ?? '').trim();
 
     React.useEffect(() => {
+        // Si estamos en modo edición, no hacer autofill
+        if (isEditing) {
+            setLoading(false);
+            setError('');
+            return;
+        }
+
         //Si el usuario borra el DNI: cancelar request, resetear refs y limpiar autocompletado.
         if (dni === '') {
             abortRef.current?.abort();
@@ -301,7 +309,7 @@ function useAutofillByDni(
         }, 450);
 
         return () => window.clearTimeout(timer);
-    }, [dni, basePath, setFormData]);
+    }, [dni, basePath, setFormData, isEditing]);
 
     return { loading, error };
 }
@@ -499,12 +507,12 @@ function App() {
         const savedCases = localStorage.getItem('casos');
         return savedCases ? JSON.parse(savedCases) : [];
     });
-    const [formData, setFormData] = useState<FormDataState>(initialState);
-    const clienteLookup = useAutofillByDni('cliente', formData, setFormData);
-    const coActor1Lookup = useAutofillByDni('coActor1', formData, setFormData);
-    const titularLookup = useAutofillByDni('titularCliente', formData, setFormData);
-    const [errors, setErrors] = useState<ValidationErrors>({});
     const [editingCaseId, setEditingCaseId] = useState<number | null>(null);
+    const [formData, setFormData] = useState<FormDataState>(initialState);
+    const clienteLookup = useAutofillByDni('cliente', formData, setFormData, !!editingCaseId);
+    const coActor1Lookup = useAutofillByDni('coActor1', formData, setFormData, false);
+    const titularLookup = useAutofillByDni('titularCliente', formData, setFormData, !!editingCaseId);
+    const [errors, setErrors] = useState<ValidationErrors>({});
     const [view, setView] = useState<View>('dashboard');
 
     useEffect(() => {
@@ -791,7 +799,7 @@ function App() {
                         </div>
                         {/* Actor Principal */}
                         <Section title="Datos del Cliente (Actor Principal)" description="Información personal del cliente principal">
-                            <InputField label="D.N.I." name="cliente.dni" value={formData.cliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.dni')} required />
+                            <InputField label="D.N.I." name="cliente.dni" value={formData.cliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.dni')} required disabled={!!editingCaseId} title={editingCaseId ? "El DNI no puede ser modificado al editar un caso existente" : ""} />
                             <div className={`md:col-span-3 text-sm min-h-[1.25rem] ${clienteLookup.error ? 'text-red-600' : 'text-slate-500'}`}>
                                 {clienteLookup.loading ? 'Buscando datos por DNI...' : (clienteLookup.error ? clienteLookup.error : '\u00A0')}
                             </div>
@@ -874,7 +882,7 @@ function App() {
 
                         {/* Titular Registral */}
                         <Section title="Datos del Titular Registral">
-                            <InputField label="D.N.I." name="titularCliente.dni" value={formData.titularCliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'titularCliente.dni')} required />
+                            <InputField label="D.N.I." name="titularCliente.dni" value={formData.titularCliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'titularCliente.dni')} required disabled={!!editingCaseId} title={editingCaseId ? "El DNI no puede ser modificado al editar un caso existente" : ""} />
                             <div className={`md:col-span-3 text-sm min-h-[1.25rem] ${titularLookup.error ? 'text-red-600' : 'text-slate-500'}`}>
                                 {titularLookup.loading ? 'Buscando datos por DNI...' : (titularLookup.error ? titularLookup.error : '\u00A0')}
                             </div>
