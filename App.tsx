@@ -37,6 +37,7 @@ import ProvinciaSelect from './components/ProvinciaSelect';
 
 const PROVINCIAS_API_URL = 'https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/provincias';
 const CLIENTE_API_URL = 'https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/cliente';
+const CASOS_API_URL = 'https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/caso';
 
 const initialLesionesState: Lesiones = {
     centroMedico1: '', centroMedico2: '', modoTraslado: '', fueOperado: '', estuvoInternado: '',
@@ -220,6 +221,7 @@ function useAutofillByDni(
     basePath: 'cliente' | 'coActor1' | 'titularCliente',
     formData: FormDataState,
     setFormData: React.Dispatch<React.SetStateAction<FormDataState>>,
+    isEditing: boolean = false
 ) {
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState('');
@@ -230,6 +232,13 @@ function useAutofillByDni(
     const dni = String((formData as any)?.[basePath]?.dni ?? '').trim();
 
     React.useEffect(() => {
+        // Si estamos en modo edición, no hacer autofill
+        if (isEditing) {
+            setLoading(false);
+            setError('');
+            return;
+        }
+
         //Si el usuario borra el DNI: cancelar request, resetear refs y limpiar autocompletado.
         if (dni === '') {
             abortRef.current?.abort();
@@ -300,7 +309,7 @@ function useAutofillByDni(
         }, 450);
 
         return () => window.clearTimeout(timer);
-    }, [dni, basePath, setFormData]);
+    }, [dni, basePath, setFormData, isEditing]);
 
     return { loading, error };
 }
@@ -498,12 +507,12 @@ function App() {
         const savedCases = localStorage.getItem('casos');
         return savedCases ? JSON.parse(savedCases) : [];
     });
-    const [formData, setFormData] = useState<FormDataState>(initialState);
-    const clienteLookup = useAutofillByDni('cliente', formData, setFormData);
-    const coActor1Lookup = useAutofillByDni('coActor1', formData, setFormData);
-    const titularLookup = useAutofillByDni('titularCliente', formData, setFormData);
-    const [errors, setErrors] = useState<ValidationErrors>({});
     const [editingCaseId, setEditingCaseId] = useState<number | null>(null);
+    const [formData, setFormData] = useState<FormDataState>(initialState);
+    const clienteLookup = useAutofillByDni('cliente', formData, setFormData, !!editingCaseId);
+    const coActor1Lookup = useAutofillByDni('coActor1', formData, setFormData, false);
+    const titularLookup = useAutofillByDni('titularCliente', formData, setFormData, !!editingCaseId);
+    const [errors, setErrors] = useState<ValidationErrors>({});
     const [view, setView] = useState<View>('dashboard');
 
     useEffect(() => {
@@ -630,29 +639,49 @@ function App() {
         setView('setup');
     }
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (validateForm()) {
-            if (editingCaseId) {
-                // Update existing case
-                setCases(prevCases => prevCases.map(c => c.id === editingCaseId ? { ...formData, id: editingCaseId } : c));
-                alert("Caso actualizado con éxito.");
-            } else {
-                // Create new case
-                const newCase: FormDataState = { ...formData, id: Date.now() };
-                setCases(prevCases => [...prevCases, newCase]);
-                alert("Caso ingresado con éxito.");
+
+        // 1. Validación original
+        if (!validateForm()) {
+            alert("Por favor, corrija los errores marcados en el formulario.");
+            return;
+        }
+
+        try {
+            // 2. Envío a través del PROXY (CASOS_API_URL es '/api-casos/caso')
+            const response = await fetch(CASOS_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error servidor: ${response.status}`);
             }
 
+            const result = await response.json();
+
+            // 3. Lógica de éxito
+            const newCase: FormDataState = {
+                ...formData,
+                id: result.id || Date.now(),
+            };
+
+            setCases(prev => [...prev, newCase]);
             setFormData(initialState);
             setErrors({});
             setEditingCaseId(null);
+            alert("El caso se ha creado correctamente.");
             setView('dashboard');
-        } else {
-            alert("Por favor, corrija los errores marcados en el formulario.");
+
+        } catch (error) {
+            console.error('Error al guardar:', error);
+            alert("Error al conectar con el servidor a través del proxy.");
         }
     };
-
     const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         const error = validateField(name, value);
@@ -770,7 +799,7 @@ function App() {
                         </div>
                         {/* Actor Principal */}
                         <Section title="Datos del Cliente (Actor Principal)" description="Información personal del cliente principal">
-                            <InputField label="D.N.I." name="cliente.dni" value={formData.cliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.dni')} required />
+                            <InputField label="D.N.I." name="cliente.dni" value={formData.cliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.dni')} required disabled={!!editingCaseId} title={editingCaseId ? "El DNI no puede ser modificado al editar un caso existente" : ""} />
                             <div className={`md:col-span-3 text-sm min-h-[1.25rem] ${clienteLookup.error ? 'text-red-600' : 'text-slate-500'}`}>
                                 {clienteLookup.loading ? 'Buscando datos por DNI...' : (clienteLookup.error ? clienteLookup.error : '\u00A0')}
                             </div>
@@ -853,7 +882,7 @@ function App() {
 
                         {/* Titular Registral */}
                         <Section title="Datos del Titular Registral">
-                            <InputField label="D.N.I." name="titularCliente.dni" value={formData.titularCliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'titularCliente.dni')} required />
+                            <InputField label="D.N.I." name="titularCliente.dni" value={formData.titularCliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'titularCliente.dni')} required disabled={!!editingCaseId} title={editingCaseId ? "El DNI no puede ser modificado al editar un caso existente" : ""} />
                             <div className={`md:col-span-3 text-sm min-h-[1.25rem] ${titularLookup.error ? 'text-red-600' : 'text-slate-500'}`}>
                                 {titularLookup.loading ? 'Buscando datos por DNI...' : (titularLookup.error ? titularLookup.error : '\u00A0')}
                             </div>
@@ -954,8 +983,7 @@ function App() {
                         <Section title="Datos del Siniestro">
                             <InputField label="Fecha del Hecho" name="siniestro.fechaHecho" type="date" value={formData.siniestro.fechaHecho} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.fechaHecho')} required />
                             <InputField label="Hora Aproximada" name="siniestro.horaHecho" type="time" value={formData.siniestro.horaHecho} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.horaHecho')} required />
-                            <InputField label="Lugar del Hecho" name="siniestro.lugarHecho" value={formData.siniestro.lugarHecho} onChange={handleInputChange} onBlur={handleBlur} helpText="Ej: Av. Rivadavia y Av. Callao" error={getNestedValue(errors, 'siniestro.lugarHecho')} required />
-                            <InputField label="Calles" name="siniestro.calles" value={formData.siniestro.calles} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.calles')} />
+                            /*TODO, remover campo y que no rompa validacion*/<InputField label="Lugar del Hecho" name="siniestro.lugarHecho" value={formData.siniestro.lugarHecho} onChange={handleInputChange} onBlur={handleBlur} helpText="Ej: Av. Rivadavia y Av. Callao" error={getNestedValue(errors, 'siniestro.lugarHecho')} required />
                             <AddressRow
                                 calleName="siniestro.calles"
                                 calleValue={formData.siniestro.calles || ''}
