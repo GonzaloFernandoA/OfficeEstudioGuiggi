@@ -405,26 +405,27 @@ const DemandadosSectionComponent: React.FC<{
                     <InputField label="Aclarar Fuente" name={`${basePath}.conductor.fuenteDatoOtro`} value={data.conductor.fuenteDatoOtro} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.conductor.fuenteDatoOtro`)} />
                 )}
             </DemandadoSubSection>
-            {/* Other demandado subsections */}
+
+            {/* Titular Registral del Vehículo */}
             <DemandadoSubSection title="Titular Registral del Vehículo">
                 <InputField label="Nombre y Apellido" name={`${basePath}.titular.nombreApellido`} value={data.titular.nombreApellido} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.titular.nombreApellido`)} />
                 <InputField label="D.N.I." name={`${basePath}.titular.dni`} value={data.titular.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.titular.dni`)} />
                 <InputField label="Teléfono" name={`${basePath}.titular.telefono`} type="tel" value={data.titular.telefono} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.titular.telefono`)} />
                 <AddressRow
-                    calleName={`${basePath}.conductor.domicilio`}
-                    calleValue={data.conductor.domicilio || ''}
+                    calleName={`${basePath}.titular.domicilio`}
+                    calleValue={data.titular.domicilio || ''}
                     onCalleChange={handleInputChange}
-                    calleError={getNestedValue(errors, `${basePath}.conductor.domicilio`)}
+                    calleError={getNestedValue(errors, `${basePath}.titular.domicilio`)}
 
-                    localidadName={`${basePath}.conductor.localidad`}
-                    localidadValue={data.conductor.localidad || ''}
+                    localidadName={`${basePath}.titular.localidad`}
+                    localidadValue={data.titular.localidad || ''}
                     onLocalidadChange={handleInputChange}
-                    localidadError={getNestedValue(errors, `${basePath}.conductor.localidad`)}
+                    localidadError={getNestedValue(errors, `${basePath}.titular.localidad`)}
 
-                    provinciaName={`${basePath}.conductor.provincia`}
-                    provinciaValue={data.conductor.provincia || ''}
+                    provinciaName={`${basePath}.titular.provincia`}
+                    provinciaValue={data.titular.provincia || ''}
                     onProvinciaChange={handleInputChange}
-                    provinciaError={getNestedValue(errors, `${basePath}.conductor.provincia`)}
+                    provinciaError={getNestedValue(errors, `${basePath}.titular.provincia`)}
                 />
                 <SelectField label="Fuente del Dato" name={`${basePath}.titular.fuenteDato`} value={data.titular.fuenteDato} onChange={handleInputChange} onBlur={handleBlur} options={FUENTE_DATO_OPTIONS} error={getNestedValue(errors, `${basePath}.titular.fuenteDato`)} />
                 {data.titular.fuenteDato === 'Otro' && (
@@ -432,25 +433,26 @@ const DemandadosSectionComponent: React.FC<{
                 )}
             </DemandadoSubSection>
 
+            {/* Asegurado / Tomador de Póliza del Vehículo */}
             <DemandadoSubSection title="Asegurado / Tomador de Póliza del Vehículo">
                 <InputField label="Nombre y Apellido" name={`${basePath}.asegurado.nombreApellido`} value={data.asegurado.nombreApellido} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.asegurado.nombreApellido`)} />
                 <InputField label="D.N.I." name={`${basePath}.asegurado.dni`} value={data.asegurado.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.asegurado.dni`)} />
                 <InputField label="Teléfono" name={`${basePath}.asegurado.telefono`} type="tel" value={data.asegurado.telefono} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.asegurado.telefono`)} />
                 <AddressRow
-                    calleName={`${basePath}.conductor.domicilio`}
-                    calleValue={data.conductor.domicilio || ''}
+                    calleName={`${basePath}.asegurado.domicilio`}
+                    calleValue={data.asegurado.domicilio || ''}
                     onCalleChange={handleInputChange}
-                    calleError={getNestedValue(errors, `${basePath}.conductor.domicilio`)}
+                    calleError={getNestedValue(errors, `${basePath}.asegurado.domicilio`)}
 
-                    localidadName={`${basePath}.conductor.localidad`}
-                    localidadValue={data.conductor.localidad || ''}
+                    localidadName={`${basePath}.asegurado.localidad`}
+                    localidadValue={data.asegurado.localidad || ''}
                     onLocalidadChange={handleInputChange}
-                    localidadError={getNestedValue(errors, `${basePath}.conductor.localidad`)}
+                    localidadError={getNestedValue(errors, `${basePath}.asegurado.localidad`)}
 
-                    provinciaName={`${basePath}.conductor.provincia`}
-                    provinciaValue={data.conductor.provincia || ''}
+                    provinciaName={`${basePath}.asegurado.provincia`}
+                    provinciaValue={data.asegurado.provincia || ''}
                     onProvinciaChange={handleInputChange}
-                    provinciaError={getNestedValue(errors, `${basePath}.conductor.provincia`)}
+                    provinciaError={getNestedValue(errors, `${basePath}.asegurado.provincia`)}
                 />
                 <SelectField label="Fuente del Dato" name={`${basePath}.asegurado.fuenteDato`} value={data.asegurado.fuenteDato} onChange={handleInputChange} onBlur={handleBlur} options={FUENTE_DATO_OPTIONS} error={getNestedValue(errors, `${basePath}.asegurado.fuenteDato`)} />
                 {data.asegurado.fuenteDato === 'Otro' && (
@@ -458,6 +460,7 @@ const DemandadosSectionComponent: React.FC<{
                 )}
             </DemandadoSubSection>
 
+            {/* Datos del Vehículo y Compañía de Seguros */}
             <DemandadoSubSection title="Datos del Vehículo y Compañía de Seguros">
                 <InputField label="Vehículo (Marca y Modelo)" name={`${basePath}.vehiculo.marcaModelo`} value={data.vehiculo.marcaModelo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.vehiculo.marcaModelo`)} />
                 <InputField label="Dominio" name={`${basePath}.vehiculo.dominio`} value={data.vehiculo.dominio} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.vehiculo.dominio`)} />
@@ -467,6 +470,7 @@ const DemandadosSectionComponent: React.FC<{
                 <InputField label="Número de Siniestro" name={`${basePath}.companiaSeguros.numeroSiniestro`} value={data.companiaSeguros.numeroSiniestro} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, `${basePath}.companiaSeguros.numeroSiniestro`)} />
             </DemandadoSubSection>
 
+            {/* Daños Materiales del Vehículo */}
             <DemandadoSubSection title="Daños Materiales del Vehículo">
                 <CheckboxGrid
                     title="Especificar zona del impacto"
