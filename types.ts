@@ -128,7 +128,6 @@ export interface FormDataState {
   titularCliente: TitularRegistral;
   coActor1: Person;
   siniestro: {
-    lugarHecho: string;
     fechaHecho: string;
     horaHecho: string;
     calles: string;
