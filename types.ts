@@ -1,4 +1,4 @@
-// Fix: Removed self-import from './types' which was causing declaration conflicts.
+Ôªø// Fix: Removed self-import from './types' which was causing declaration conflicts.
 
 export interface Lesiones {
   centroMedico1: string;
@@ -97,6 +97,8 @@ export interface Testigo {
     nombreApellido: string;
     dni: string;
     domicilio: string;
+    localidad: string;
+    provincia: string;
     rol: string;
 }
 
@@ -113,7 +115,7 @@ export interface Provincia {
   codigo?: string;
 }
 
-// ConfiguraciÛn din·mica de opciones geogr·ficas
+// Configuraci√≥n din√°mica de opciones geogr√°ficas
 export interface GeographicConfig {
   provincias: Provincia[];
   localidades: Localidad[];
@@ -147,10 +149,7 @@ export interface FormDataState {
     zonas: string[];
     otro: string;
   };
-  testigos: {
-    testigo1: Testigo;
-    testigo2: Testigo;
-  };
+  testigos: Testigo[];  //Era un objeto, ahora es array
   clasificacionFinal: {
     areaPolicial: string;
     lesiones: string;
