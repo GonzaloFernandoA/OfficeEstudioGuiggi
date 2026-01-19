@@ -79,7 +79,7 @@ const initialState: FormDataState = {
     titularCliente: { ...initialTitularState },
     coActor1: { ...initialPersonState },
     siniestro: {
-        lugarHecho: '', fechaHecho: '', horaHecho: '', calles: '', localidad: '', partido: '',
+        fechaHecho: '', horaHecho: '', calles: '', localidad: '', partido: '',
         condicionesClimaticas: '', rolProtagonistas: '', mecanicaAccidente: '', otraMecanica: '',
         narracionHechos: '', actuacionesPenales: '', comisaria: '', causaPenal: ''
     },
@@ -319,7 +319,7 @@ const requiredFields = [
     'cliente.nombreCompleto', 'cliente.dni', 'cliente.fechaNacimiento', 'cliente.domicilio',
     'cliente.localidad', 'cliente.telefono', 'cliente.mail', 'cliente.rolAccidente',
     'vehiculoCliente.vehiculo', 'vehiculoCliente.dominio',
-    'siniestro.lugarHecho', 'siniestro.fechaHecho', 'siniestro.horaHecho',
+    'siniestro.fechaHecho', 'siniestro.horaHecho',
 ];
 
 const validateField = (name: string, value: any): string => {
@@ -987,7 +987,7 @@ function App() {
                         <Section title="Datos del Siniestro">
                             <InputField label="Fecha del Hecho" name="siniestro.fechaHecho" type="date" value={formData.siniestro.fechaHecho} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.fechaHecho')} required />
                             <InputField label="Hora Aproximada" name="siniestro.horaHecho" type="time" value={formData.siniestro.horaHecho} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.horaHecho')} required />
-                            /*TODO, remover campo y que no rompa validacion*/<InputField label="Lugar del Hecho" name="siniestro.lugarHecho" value={formData.siniestro.lugarHecho} onChange={handleInputChange} onBlur={handleBlur} helpText="Ej: Av. Rivadavia y Av. Callao" error={getNestedValue(errors, 'siniestro.lugarHecho')} required />
+                            
                             <AddressRow
                                 calleName="siniestro.calles"
                                 calleValue={formData.siniestro.calles || ''}
