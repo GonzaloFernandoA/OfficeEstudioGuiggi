@@ -507,10 +507,7 @@ function App() {
     };
 
     const appStage = getAppStage();
-    const [cases, setCases] = useState<FormDataState[]>(() => {
-        const savedCases = localStorage.getItem('casos');
-        return savedCases ? JSON.parse(savedCases) : [];
-    });
+    const [cases, setCases] = useState<any[]>([]);
     const [editingCaseId, setEditingCaseId] = useState<number | null>(null);
     const [formData, setFormData] = useState<FormDataState>(initialState);
     const clienteLookup = useAutofillByDni('cliente', formData, setFormData, !!editingCaseId);
@@ -518,10 +515,6 @@ function App() {
     const titularLookup = useAutofillByDni('titularCliente', formData, setFormData, !!editingCaseId);
     const [errors, setErrors] = useState<ValidationErrors>({});
     const [view, setView] = useState<View>('dashboard');
-
-    useEffect(() => {
-        localStorage.setItem('casos', JSON.stringify(cases));
-    }, [cases]);
 
     useEffect(() => {
         geographicService.loadProvincias(PROVINCIAS_API_URL)
@@ -709,6 +702,36 @@ function App() {
             return rest;
         });
     };
+
+    // Cargar casos desde la API al montar
+    useEffect(() => {
+        const cargarCasos = async () => {
+            console.log('🔄 Iniciando carga de casos...');
+            try {
+                const respuesta = await fetch(CASOS_API_URL);
+                console.log('📡 Response status:', respuesta.status);
+                
+                if (!respuesta.ok) {
+                    console.error('❌ Error HTTP:', respuesta.status);
+                    throw new Error(`HTTP ${respuesta.status}`);
+                }
+                
+                const datos = await respuesta.json();
+                console.log('✅ Datos recibidos:', datos);
+                console.log('📦 Es array?', Array.isArray(datos));
+                console.log('📊 Cantidad:', Array.isArray(datos) ? datos.length : 'N/A');
+                
+                const casosApi = Array.isArray(datos) ? datos : [];
+                setCases(casosApi);
+                console.log('📌 Cases seteados:', casosApi);
+            } catch (err: any) {
+                console.error('❌ Error completo:', err.message);
+                setCases([]);
+            }
+        };
+        
+        cargarCasos();
+    }, []);
 
     return (
         <div className="min-h-screen text-slate-800">
