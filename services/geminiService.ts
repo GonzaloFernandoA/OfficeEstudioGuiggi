@@ -15,10 +15,12 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
 };
 
 export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
-  if (!process.env.API_KEY) {
+    console.log("DEBUG ENV:", process.env);
+
+  if (!process.env.GEMINI_API_KEY) {
     throw new Error("API key for Gemini is not set.");
   }
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
   try {
     const audioData = await blobToBase64(audioBlob);
