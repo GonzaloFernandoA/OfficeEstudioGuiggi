@@ -5,6 +5,7 @@ import ProvinciaSelect from './ProvinciaSelect';
 import AddressRow from './AddressRow';
 import { geographicService } from '../services/geographicService';
 import { apiClient } from '../services/apiClient';
+import AudioRecorder from './AudioRecorder';
 
 interface Siniestro {
     fecha: string;
@@ -423,17 +424,23 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                     provinciaError={errors['siniestro.provincia']}
                 />
 
-                <InputField
-                    label="Descripción"
-                    name="descripcion"
-                    as="textarea"
-                    rows={4}
-                    value={formData.siniestro.descripcion}
-                    onChange={handleSiniestroChange}
-                    placeholder="Describa los detalles del siniestro..."
-                    error={errors['siniestro.descripcion']}
-                    className="md:col-span-3 lg:col-span-3"
-                />
+                {/* Descripción del siniestro con grabación y transcripción de audio */}
+                <div className="md:col-span-3 lg:col-span-3 mt-4">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Descripción
+                    </label>
+                    <p className="text-xs text-slate-500 mb-2">
+                        Puede escribir la descripción o grabar un audio y se transcribirá automáticamente.
+                    </p>
+                    <AudioRecorder
+                        name="descripcion"
+                        value={formData.siniestro.descripcion}
+                        onChange={handleSiniestroChange}
+                    />
+                    {errors['siniestro.descripcion'] && (
+                        <p className="mt-1 text-sm text-red-600">{errors['siniestro.descripcion']}</p>
+                    )}
+                </div>
             </Section>
 
             {/* DAMNIFICADOS */}
