@@ -58,19 +58,25 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
 
   const filteredCases = useMemo(() => {
     return cases.filter(c => {
-      const { areaPolicial, lesiones, reclamo } = c.clasificacionFinal;
+      // Datos simples de API no tienen clasificacionFinal
+      const clasificacionFinal = c.clasificacionFinal || {};
+      const { areaPolicial = '', lesiones = '', reclamo = '' } = clasificacionFinal;
+      
       if (filters.areaPolicial && areaPolicial !== filters.areaPolicial) return false;
       if (filters.lesiones && lesiones !== filters.lesiones) return false;
       if (filters.reclamo && reclamo !== filters.reclamo) return false;
       
       const searchLower = searchQuery.toLowerCase();
+      const nombreCompleto = c.cliente?.nombreCompleto || c.nombreCompleto || '';
+      const dni = c.cliente?.dni || c.dni || '';
+      
       if (searchQuery && 
-          !c.cliente.nombreCompleto.toLowerCase().includes(searchLower) && 
-          !c.cliente.dni.toLowerCase().includes(searchLower)) {
+          !nombreCompleto.toLowerCase().includes(searchLower) && 
+          !dni.toLowerCase().includes(searchLower)) {
           return false;
       }
       return true;
-    }).sort((a, b) => (b.id ?? 0) - (a.id ?? 0)); // Sort by newest first
+    }).sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
   }, [cases, filters, searchQuery]);
   
   const resetFilters = () => {
@@ -206,26 +212,33 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
 
        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCases.length > 0 ? (
-          filteredCases.map(c => (
-            <div key={c.id} className="bg-slate-50/80 rounded-lg p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all flex flex-col">
-              <div className="flex-grow">
-                <h3 className="text-lg font-semibold text-slate-800 truncate">{c.cliente.nombreCompleto}</h3>
-                <p className="text-sm text-slate-500">DNI: {c.cliente.dni}</p>
-                <p className="text-sm text-slate-500">Fecha Hecho: {c.siniestro.fechaHecho}</p>
+          filteredCases.map(c => {
+            // Manejar ambos formatos: API simple y FormDataState completo
+            const nombreCompleto = c.cliente?.nombreCompleto || c.nombreCompleto || 'Sin nombre';
+            const dni = c.cliente?.dni || c.dni || 'Sin DNI';
+            const fechaHecho = c.siniestro?.fechaHecho || c.fechaHecho || 'N/A';
+            
+            return (
+              <div key={c.id} className="bg-slate-50/80 rounded-lg p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all flex flex-col">
+                <div className="flex-grow">
+                  <h3 className="text-lg font-semibold text-slate-800 truncate">{nombreCompleto}</h3>
+                  <p className="text-sm text-slate-500">DNI: {dni}</p>
+                  <p className="text-sm text-slate-500">Fecha Hecho: {fechaHecho}</p>
+                </div>
+                <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-end space-x-4">
+                   <button onClick={() => setSelectedCase(c)} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+                     Ver Detalles
+                   </button>
+                   <button onClick={() => onEdit(c.id!)} className="text-sm font-medium text-blue-600 hover:text-blue-800">
+                     Editar
+                   </button>
+                   <button onClick={() => setCaseToDelete(c)} className="text-sm font-medium text-red-600 hover:text-red-800">
+                     Eliminar
+                   </button>
+                </div>
               </div>
-              <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-end space-x-4">
-                 <button onClick={() => setSelectedCase(c)} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
-                   Ver Detalles
-                 </button>
-                 <button onClick={() => onEdit(c.id!)} className="text-sm font-medium text-blue-600 hover:text-blue-800">
-                   Editar
-                 </button>
-                 <button onClick={() => setCaseToDelete(c)} className="text-sm font-medium text-red-600 hover:text-red-800">
-                   Eliminar
-                 </button>
-              </div>
-            </div>
-          ))
+            );
+          })
         ) : (
              <div className="md:col-span-2 lg:col-span-3 text-center py-12 bg-slate-50 rounded-lg">
                 <h3 className="text-lg font-medium text-slate-700">No se encontraron casos</h3>
@@ -348,7 +361,7 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
             <h3 className="text-lg font-bold text-slate-800">Confirmar Eliminación</h3>
             <p className="mt-2 text-sm text-slate-600">
-                ¿Estás seguro de que quieres eliminar el caso de <strong>{caseToDelete.cliente.nombreCompleto}</strong>? Esta acción no se puede deshacer.
+                ¿Estás seguro de que quieres eliminar el caso de <strong>{caseToDelete.cliente?.nombreCompleto || caseToDelete.nombreCompleto || 'este caso'}</strong>? Esta acción no se puede deshacer.
             </p>
             <div className="mt-6 flex justify-end space-x-3">
               <button onClick={() => setCaseToDelete(null)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md border border-slate-300">
