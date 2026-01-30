@@ -17,6 +17,61 @@ export class ApiClient {
         this.baseUrl = baseUrl;
     }
 
+    // Método genérico GET
+    async get<T = any>(endpoint: string): Promise<ApiResponse<T>> {
+        const url = `${this.baseUrl}${endpoint}`;
+
+        try {
+            console.log(`🔹 GET ${url}`);
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                },
+            });
+
+            const responseText = await response.text();
+            console.log(`📊 Status: ${response.status}`, response.statusText);
+
+            if (!response.ok) {
+                console.error('❌ Error Response (GET):', responseText);
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+
+            let data: T | undefined;
+            try {
+                data = responseText ? JSON.parse(responseText) : undefined;
+            } catch {
+                data = responseText as T;
+            }
+
+            console.log('✅ Success (GET):', data);
+
+            return {
+                status: response.status,
+                statusText: response.statusText,
+                data,
+            };
+        } catch (error) {
+            let errorMessage = 'Error desconocido';
+
+            if (error instanceof TypeError) {
+                errorMessage = 'No se puede conectar a la API (GET). Verifica que el servidor esté ejecutándose.';
+            } else if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+
+            console.error('🔴 Error (GET):', errorMessage);
+
+            return {
+                status: 500,
+                statusText: 'Error',
+                error: errorMessage,
+            };
+        }
+    }
+
     /**
      * Envía un JSON con POST a un endpoint
      * @param endpoint - Ruta del endpoint (ej: '/contactos')

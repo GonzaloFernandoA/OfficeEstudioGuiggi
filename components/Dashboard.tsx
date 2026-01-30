@@ -262,7 +262,8 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
             const fechaHecho = c.siniestro?.fechaHecho || c.fechaHecho || 'N/A';
             
             return (
-              <div key={c.id} className="bg-slate-50/80 rounded-lg p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all flex flex-col">
+                console.log('Renderizando caso:', c),
+              <div key={c.dni} className="bg-slate-50/80 rounded-lg p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all flex flex-col">
                 <div className="flex-grow">
                   <h3 className="text-lg font-semibold text-slate-800 truncate">{nombreCompleto}</h3>
                   <p className="text-sm text-slate-500">DNI: {dni}</p>
@@ -272,7 +273,7 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
                    <button onClick={() => handleVerDetalles(c)} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
                      Ver Detalles
                    </button>
-                   <button onClick={() => onEdit(c.id!)} className="text-sm font-medium text-blue-600 hover:text-blue-800">
+                   <button onClick={() => onEdit(c.dni!)} className="text-sm font-medium text-blue-600 hover:text-blue-800">
                      Editar
                    </button>
                    <button onClick={() => setCaseToDelete(c)} className="text-sm font-medium text-red-600 hover:text-red-800">
