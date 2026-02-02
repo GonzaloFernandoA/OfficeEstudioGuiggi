@@ -381,7 +381,7 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                         </div>
                         <div className="flex justify-end space-x-3">
                             <button onClick={() => setShowConvenioModal(false)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-md border border-slate-300">Cerrar</button>
-                            <button onClick={() => convenioText && handlePrintConvenio(convenioText)} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md">Imprimir</button>
+                            <button type="button" onClick={() => convenioText && handlePrintConvenio(convenioText)} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md">Imprimir</button>
                         </div>
                     </div>
                 </div>
