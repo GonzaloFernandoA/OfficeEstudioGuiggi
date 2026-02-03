@@ -3,6 +3,7 @@ import type { FormDataState } from '../types';
 import { ACTUACIONES_PENALES_OPTIONS, CLASIFICACION_LESIONES_OPTIONS, TIPO_RECLAMO_OPTIONS } from '../constants';
 import { generateCaseSummary } from '../services/geminiService';
 import { generateConvenioDeHonorarios } from '../services/documentService';
+import { exportCasoToExcel } from '../services/exportService';
 
 interface DashboardProps {
   cases: FormDataState[];
@@ -256,21 +257,19 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCases.length > 0 ? (
           filteredCases.map(c => {
-            // Manejar ambos formatos: API simple y FormDataState completo
             const nombreCompleto = c.cliente?.nombreCompleto || c.nombreCompleto || 'Sin nombre';
             const dni = c.cliente?.dni || c.dni || 'Sin DNI';
             const fechaHecho = c.siniestro?.fechaHecho || c.fechaHecho || 'N/A';
-            
             return (
-                console.log('Renderizando caso:', c),
-              <div key={c.dni} className="bg-slate-50/80 rounded-lg p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all flex flex-col">
-                <div className="flex-grow">
+              console.log('Renderizando caso:', c),
+              <div key={c.id ?? `${dni}-${Math.random()}`} className="border border-slate-200 rounded-lg shadow-sm bg-white flex flex-col">
+                <div className="flex-grow p-5">
                   <h3 className="text-lg font-semibold text-slate-800 truncate">{nombreCompleto}</h3>
                   <p className="text-sm text-slate-500">DNI: {dni}</p>
                   <p className="text-sm text-slate-500">Fecha Hecho: {fechaHecho}</p>
                 </div>
                 <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-end space-x-4">
-                   <button onClick={() => handleVerDetalles(c)} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+                    <button onClick={() => handleVerDetalles(c)} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
                      Ver Detalles
                    </button>
                    <button onClick={() => onEdit(c.dni!)} className="text-sm font-medium text-blue-600 hover:text-blue-800">
@@ -279,6 +278,14 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
                    <button onClick={() => setCaseToDelete(c)} className="text-sm font-medium text-red-600 hover:text-red-800">
                      Eliminar
                    </button>
+                   <button
+                     type="button"
+                     onClick={() => dni && exportCasoToExcel(dni)}
+                     className="text-green-600 hover:text-green-800 font-medium"
+                   >
+                     Exportar
+                   </button>
+
                 </div>
               </div>
             );
