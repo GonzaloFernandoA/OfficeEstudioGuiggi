@@ -51,6 +51,11 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
   const [isConvenioVisible, setIsConvenioVisible] = useState(false);
   const [copyButtonText, setCopyButtonText] = useState('Copiar Texto');
 
+  // Case Details State (from API)
+  const [caseDetails, setCaseDetails] = useState<FormDataState | null>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
@@ -58,19 +63,25 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
 
   const filteredCases = useMemo(() => {
     return cases.filter(c => {
-      const { areaPolicial, lesiones, reclamo } = c.clasificacionFinal;
+      // Datos simples de API no tienen clasificacionFinal
+      const clasificacionFinal = c.clasificacionFinal || {};
+      const { areaPolicial = '', lesiones = '', reclamo = '' } = clasificacionFinal;
+      
       if (filters.areaPolicial && areaPolicial !== filters.areaPolicial) return false;
       if (filters.lesiones && lesiones !== filters.lesiones) return false;
       if (filters.reclamo && reclamo !== filters.reclamo) return false;
       
       const searchLower = searchQuery.toLowerCase();
+      const nombreCompleto = c.cliente?.nombreCompleto || c.nombreCompleto || '';
+      const dni = c.cliente?.dni || c.dni || '';
+      
       if (searchQuery && 
-          !c.cliente.nombreCompleto.toLowerCase().includes(searchLower) && 
-          !c.cliente.dni.toLowerCase().includes(searchLower)) {
+          !nombreCompleto.toLowerCase().includes(searchLower) && 
+          !dni.toLowerCase().includes(searchLower)) {
           return false;
       }
       return true;
-    }).sort((a, b) => (b.id ?? 0) - (a.id ?? 0)); // Sort by newest first
+    }).sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
   }, [cases, filters, searchQuery]);
   
   const resetFilters = () => {
@@ -83,6 +94,11 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
         setSummary('');
         setSummaryError(null);
         setIsSummarizing(false);
+    } else {
+        // Limpiar estados cuando se cierra el modal
+        setCaseDetails(null);
+        setDetailsError(null);
+        setIsLoadingDetails(false);
     }
   }, [selectedCase]);
 
@@ -158,6 +174,39 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
       setCaseToDelete(null);
   }
 
+  const handleVerDetalles = async (caseData: FormDataState) => {
+    // Extraer DNI del caso
+    const dni = caseData.cliente?.dni || caseData.dni;
+
+    if (!dni) {
+      setDetailsError('No se pudo obtener el DNI del caso');
+      setSelectedCase(caseData);
+      return;
+    }
+
+    // Resetear estados
+    setCaseDetails(null);
+    setDetailsError(null);
+    setIsLoadingDetails(true);
+    setSelectedCase(caseData); // Abrir modal inmediatamente
+
+    try {
+      const response = await fetch(`https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/caso/${encodeURIComponent(dni)}`);
+
+      if (!response.ok) {
+        throw new Error(`Error al cargar detalles: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setCaseDetails(data);
+    } catch (err) {
+      console.error('Error al cargar detalles del caso:', err);
+      setDetailsError(err instanceof Error ? err.message : 'Error desconocido al cargar detalles');
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
   return (
     <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg">
       <h2 className="text-2xl font-bold text-slate-800 mb-4">Tablero de Casos</h2>
@@ -206,26 +255,34 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
 
        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCases.length > 0 ? (
-          filteredCases.map(c => (
-            <div key={c.id} className="bg-slate-50/80 rounded-lg p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all flex flex-col">
-              <div className="flex-grow">
-                <h3 className="text-lg font-semibold text-slate-800 truncate">{c.cliente.nombreCompleto}</h3>
-                <p className="text-sm text-slate-500">DNI: {c.cliente.dni}</p>
-                <p className="text-sm text-slate-500">Fecha Hecho: {c.siniestro.fechaHecho}</p>
+          filteredCases.map(c => {
+            // Manejar ambos formatos: API simple y FormDataState completo
+            const nombreCompleto = c.cliente?.nombreCompleto || c.nombreCompleto || 'Sin nombre';
+            const dni = c.cliente?.dni || c.dni || 'Sin DNI';
+            const fechaHecho = c.siniestro?.fechaHecho || c.fechaHecho || 'N/A';
+            
+            return (
+                console.log('Renderizando caso:', c),
+              <div key={c.dni} className="bg-slate-50/80 rounded-lg p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all flex flex-col">
+                <div className="flex-grow">
+                  <h3 className="text-lg font-semibold text-slate-800 truncate">{nombreCompleto}</h3>
+                  <p className="text-sm text-slate-500">DNI: {dni}</p>
+                  <p className="text-sm text-slate-500">Fecha Hecho: {fechaHecho}</p>
+                </div>
+                <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-end space-x-4">
+                   <button onClick={() => handleVerDetalles(c)} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+                     Ver Detalles
+                   </button>
+                   <button onClick={() => onEdit(c.dni!)} className="text-sm font-medium text-blue-600 hover:text-blue-800">
+                     Editar
+                   </button>
+                   <button onClick={() => setCaseToDelete(c)} className="text-sm font-medium text-red-600 hover:text-red-800">
+                     Eliminar
+                   </button>
+                </div>
               </div>
-              <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-end space-x-4">
-                 <button onClick={() => setSelectedCase(c)} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
-                   Ver Detalles
-                 </button>
-                 <button onClick={() => onEdit(c.id!)} className="text-sm font-medium text-blue-600 hover:text-blue-800">
-                   Editar
-                 </button>
-                 <button onClick={() => setCaseToDelete(c)} className="text-sm font-medium text-red-600 hover:text-red-800">
-                   Eliminar
-                 </button>
-              </div>
-            </div>
-          ))
+            );
+          })
         ) : (
              <div className="md:col-span-2 lg:col-span-3 text-center py-12 bg-slate-50 rounded-lg">
                 <h3 className="text-lg font-medium text-slate-700">No se encontraron casos</h3>
@@ -237,79 +294,103 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
       </div>
 
       {selectedCase && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center p-4" onClick={() => setSelectedCase(null)}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center p-4" onClick={() => { setSelectedCase(null); setCaseDetails(null); setDetailsError(null); }}>
           <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
               <h3 className="text-xl font-bold text-slate-800">Detalles del Caso</h3>
-              <button onClick={() => setSelectedCase(null)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => { setSelectedCase(null); setCaseDetails(null); setDetailsError(null); }} className="text-slate-400 hover:text-slate-600">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
             <div className="p-6">
-               <DetailSection title="Datos del Cliente">
-                    <DetailItem label="Nombre" value={selectedCase.cliente.nombreCompleto} />
-                    <DetailItem label="DNI" value={selectedCase.cliente.dni} />
-                    <DetailItem label="Fecha de Nacimiento" value={selectedCase.cliente.fechaNacimiento} />
-                    <DetailItem label="Teléfono" value={selectedCase.cliente.telefono} />
-                    <DetailItem label="Email" value={selectedCase.cliente.mail} />
-                    <DetailItem label="Domicilio" value={`${selectedCase.cliente.domicilio}, ${selectedCase.cliente.localidad}`} />
-                    <DetailItem label="Ocupación" value={selectedCase.cliente.ocupacion} />
-                    <DetailItem label="Rol en Accidente" value={selectedCase.cliente.rolAccidente} />
-               </DetailSection>
+              {isLoadingDetails && (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <svg className="animate-spin h-10 w-10 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <p className="mt-4 text-sm text-slate-600">Cargando detalles del caso...</p>
+                </div>
+              )}
 
-               <DetailSection title="Datos del Siniestro">
-                    <DetailItem label="Fecha y Hora" value={`${selectedCase.siniestro.fechaHecho} a las ${selectedCase.siniestro.horaHecho}hs`} />
-                    <DetailItem label="Lugar" value={selectedCase.siniestro.lugarHecho} />
-                    <DetailItem label="Mecánica" value={selectedCase.siniestro.mecanicaAccidente === 'Otros' ? selectedCase.siniestro.otraMecanica : selectedCase.siniestro.mecanicaAccidente} />
-                    <DetailItem label="Narración" value={selectedCase.siniestro.narracionHechos} />
-               </DetailSection>
-               
-               <DetailSection title={`Lesiones de ${selectedCase.cliente.nombreCompleto}`}>
-                    <DetailItem label="Tipo de Lesión" value={selectedCase.cliente.lesiones.tipoLesion} />
-                    <DetailItem label="Zonas Afectadas" value={selectedCase.cliente.lesiones.zonasAfectadas} />
-                    <DetailItem label="Otras Zonas" value={selectedCase.cliente.lesiones.otrasZonasAfectadas} />
-                    <DetailItem label="Atención Médica" value={selectedCase.cliente.lesiones.centroMedico1} />
-                    <DetailItem label="Modo de Traslado" value={selectedCase.cliente.lesiones.modoTraslado} />
-               </DetailSection>
-               
-               <DetailSection title="Clasificación Final">
-                    <DetailItem label="Área Policial" value={selectedCase.clasificacionFinal.areaPolicial} />
-                    <DetailItem label="Lesiones" value={selectedCase.clasificacionFinal.lesiones.toUpperCase()} />
-                    <DetailItem label="Reclamo" value={selectedCase.clasificacionFinal.reclamo} />
-               </DetailSection>
-               
-                <div className="mt-6 space-y-4">
-                    <button
+              {detailsError && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-600">{detailsError}</p>
+                  <p className="text-xs text-red-500 mt-1">Mostrando datos del tablero.</p>
+                </div>
+              )}
+
+              {!isLoadingDetails && (() => {
+                const displayCase = caseDetails || selectedCase;
+                return (
+                  <>
+                    <DetailSection title="Datos del Cliente">
+                      <DetailItem label="Nombre" value={displayCase.cliente.nombreCompleto} />
+                      <DetailItem label="DNI" value={displayCase.cliente.dni} />
+                      <DetailItem label="Fecha de Nacimiento" value={displayCase.cliente.fechaNacimiento} />
+                      <DetailItem label="Teléfono" value={displayCase.cliente.telefono} />
+                      <DetailItem label="Email" value={displayCase.cliente.mail} />
+                      <DetailItem label="Domicilio" value={`${displayCase.cliente.domicilio}, ${displayCase.cliente.localidad}`} />
+                      <DetailItem label="Ocupación" value={displayCase.cliente.ocupacion} />
+                      <DetailItem label="Rol en Accidente" value={displayCase.cliente.rolAccidente} />
+                    </DetailSection>
+
+                    <DetailSection title="Datos del Siniestro">
+                      <DetailItem label="Fecha y Hora" value={`${displayCase.siniestro.fechaHecho} a las ${displayCase.siniestro.horaHecho}hs`} />
+                      <DetailItem label="Lugar" value={displayCase.siniestro.lugarHecho} />
+                      <DetailItem label="Mecánica" value={displayCase.siniestro.mecanicaAccidente === 'Otros' ? displayCase.siniestro.otraMecanica : displayCase.siniestro.mecanicaAccidente} />
+                      <DetailItem label="Narración" value={displayCase.siniestro.narracionHechos} />
+                    </DetailSection>
+
+                    <DetailSection title={`Lesiones de ${displayCase.cliente.nombreCompleto}`}>
+                      <DetailItem label="Tipo de Lesión" value={displayCase.cliente.lesiones.tipoLesion} />
+                      <DetailItem label="Zonas Afectadas" value={displayCase.cliente.lesiones.zonasAfectadas} />
+                      <DetailItem label="Otras Zonas" value={displayCase.cliente.lesiones.otrasZonasAfectadas} />
+                      <DetailItem label="Atención Médica" value={displayCase.cliente.lesiones.centroMedico1} />
+                      <DetailItem label="Modo de Traslado" value={displayCase.cliente.lesiones.modoTraslado} />
+                    </DetailSection>
+
+                    <DetailSection title="Clasificación Final">
+                      <DetailItem label="Área Policial" value={displayCase.clasificacionFinal.areaPolicial} />
+                      <DetailItem label="Lesiones" value={displayCase.clasificacionFinal.lesiones.toUpperCase()} />
+                      <DetailItem label="Reclamo" value={displayCase.clasificacionFinal.reclamo} />
+                    </DetailSection>
+
+                    <div className="mt-6 space-y-4">
+                      <button
                         onClick={handleGenerateSummary}
                         disabled={isSummarizing}
                         className="inline-flex items-center justify-center w-full px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
-                    >
+                      >
                         {isSummarizing ? (
-                             <>
-                                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Generando Resumen...
-                            </>
+                          <>
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Generando Resumen...
+                          </>
                         ) : 'Generar Resumen con IA'}
-                    </button>
-                    <button
+                      </button>
+                      <button
                         onClick={handleGenerateConvenio}
                         className="inline-flex items-center justify-center w-full px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                    >
+                      >
                         Generar Convenio de Honorarios
-                    </button>
-                    {summaryError && <p className="mt-2 text-sm text-red-600 text-center">{summaryError}</p>}
-                    {summary && (
+                      </button>
+                      {summaryError && <p className="mt-2 text-sm text-red-600 text-center">{summaryError}</p>}
+                      {summary && (
                         <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                            <h4 className="text-md font-semibold text-slate-800 mb-2">Resumen del Caso</h4>
-                            <div className="text-sm text-slate-700 whitespace-pre-wrap prose prose-sm max-w-none">{summary}</div>
+                          <h4 className="text-md font-semibold text-slate-800 mb-2">Resumen del Caso</h4>
+                          <div className="text-sm text-slate-700 whitespace-pre-wrap prose prose-sm max-w-none">{summary}</div>
                         </div>
-                    )}
-                </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -348,7 +429,7 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
             <h3 className="text-lg font-bold text-slate-800">Confirmar Eliminación</h3>
             <p className="mt-2 text-sm text-slate-600">
-                ¿Estás seguro de que quieres eliminar el caso de <strong>{caseToDelete.cliente.nombreCompleto}</strong>? Esta acción no se puede deshacer.
+                ¿Estás seguro de que quieres eliminar el caso de <strong>{caseToDelete.cliente?.nombreCompleto || caseToDelete.nombreCompleto || 'este caso'}</strong>? Esta acción no se puede deshacer.
             </p>
             <div className="mt-6 flex justify-end space-x-3">
               <button onClick={() => setCaseToDelete(null)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md border border-slate-300">

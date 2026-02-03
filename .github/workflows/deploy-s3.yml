@@ -28,9 +28,10 @@ jobs:
 
       - name: Create .env for build
         run: |
-          cat > .env << 'EOF'
+          cat > .env << EOF
           REACT_APP_N8N_API_KEY=${{ secrets.REACT_APP_N8N_API_KEY }}
-          REACT_APP_GEMINI_API_KEY=${{ secrets.REACT_APP_GEMINI_API_KEY }}
+          GEMINI_API_KEY=${{ secrets.REACT_APP_GEMINI_API_KEY }}
+          REACT_APP_API_KEY=${{ secrets.REACT_APP_GEMINI_API_KEY }}
           REACT_APP_STAGE=${{ github.ref_name }}
           EOF
 

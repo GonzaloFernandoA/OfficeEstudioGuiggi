@@ -33,6 +33,9 @@ import {
 
 import { geographicService } from './services/geographicService';
 import ProvinciaSelect from './components/ProvinciaSelect';
+import { getCaseById } from './services/caseService';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 
 const PROVINCIAS_API_URL = 'https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/provincias';
@@ -229,7 +232,14 @@ function useAutofillByDni(
     const abortRef = React.useRef<AbortController | null>(null);
     const lastDniRef = React.useRef<string>('');
 
-    const dni = String((formData as any)?.[basePath]?.dni ?? '').trim();
+    console.log('[App] formData.cliente =', formData.cliente);
+
+    // Log defensivo para ver qué trae formData[basePath]
+    const currentSection: any = (formData as any)?.[basePath];
+    console.log('[useAutofillByDni] basePath =', basePath, 'section =', currentSection);
+
+    const dni = currentSection?.dni ? String(currentSection.dni).trim() : '';
+    console.log('[useAutofillByDni] dni actual =', dni);
 
     React.useEffect(() => {
         // Si estamos en modo edición, no hacer autofill
@@ -507,10 +517,7 @@ function App() {
     };
 
     const appStage = getAppStage();
-    const [cases, setCases] = useState<FormDataState[]>(() => {
-        const savedCases = localStorage.getItem('casos');
-        return savedCases ? JSON.parse(savedCases) : [];
-    });
+    const [cases, setCases] = useState<any[]>([]);
     const [editingCaseId, setEditingCaseId] = useState<number | null>(null);
     const [formData, setFormData] = useState<FormDataState>(initialState);
     const clienteLookup = useAutofillByDni('cliente', formData, setFormData, !!editingCaseId);
@@ -518,10 +525,6 @@ function App() {
     const titularLookup = useAutofillByDni('titularCliente', formData, setFormData, !!editingCaseId);
     const [errors, setErrors] = useState<ValidationErrors>({});
     const [view, setView] = useState<View>('dashboard');
-
-    useEffect(() => {
-        localStorage.setItem('casos', JSON.stringify(cases));
-    }, [cases]);
 
     useEffect(() => {
         geographicService.loadProvincias(PROVINCIAS_API_URL)
@@ -599,13 +602,29 @@ function App() {
         return isValid;
     };
 
-    const handleEdit = (caseId: number) => {
-        const caseToEdit = cases.find(c => c.id === caseId);
-        if (caseToEdit) {
-            setFormData(caseToEdit);
-            setEditingCaseId(caseId);
-            setErrors({});
-            setView('form');
+    const handleEdit = async (caseId: number) => {
+        console.log('[App] Editando caso ID:', caseId);
+
+        try {
+            // 1) Intentar recuperar el caso desde el backend via caseService
+            const remoteCase = await getCaseById(caseId);
+            console.log('[App] Caso obtenido desde API =', remoteCase);
+
+            // 2) Si la API devuelve algo válido, usarlo como fuente de verdad
+            const caseToEdit = remoteCase ?? cases.find(c => c.id === caseId || (c as any).dni === caseId);
+            console.log('[App] caseToEdit (final) =', caseToEdit);
+
+            if (caseToEdit) {
+                setFormData(caseToEdit as FormDataState);
+                setEditingCaseId(caseId);
+                setErrors({});
+                setView('form');
+            } else {
+                alert('No se encontró el caso a editar.');
+            }
+        } catch (err) {
+            console.error('[App] Error al obtener caso para edición:', err);
+            alert('Ocurrió un error al obtener los datos del caso para editar.');
         }
     };
 
@@ -646,14 +665,14 @@ function App() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // 1. Validación original
         if (!validateForm()) {
-            alert("Por favor, corrija los errores marcados en el formulario.");
+            toast.error('Por favor, corrija los errores marcados en el formulario.', { autoClose: 3000 });
             return;
         }
 
+        const nombre = formData.cliente?.nombreCompleto || 'Sin nombre';
+
         try {
-            // 2. Envío a través del PROXY (CASOS_API_URL es '/api-casos/caso')
             const response = await fetch(CASOS_API_URL, {
                 method: 'POST',
                 headers: {
@@ -668,22 +687,33 @@ function App() {
 
             const result = await response.json();
 
-            // 3. Lógica de éxito
+            const isEdit = !!editingCaseId;
+            const caseId = result.id || editingCaseId || Date.now();
+
             const newCase: FormDataState = {
                 ...formData,
-                id: result.id || Date.now(),
+                id: caseId,
             };
 
-            setCases(prev => [...prev, newCase]);
+            setCases(prev => {
+                if (isEdit) {
+                    return prev.map(c => (c.id === caseId ? newCase : c));
+                }
+                return [...prev, newCase];
+            });
+
             setFormData(initialState);
             setErrors({});
             setEditingCaseId(null);
-            alert("El caso se ha creado correctamente.");
             setView('dashboard');
 
+            toast.success(
+                `El caso de ${nombre} fue ${isEdit ? 'actualizado' : 'generado'} correctamente.`,
+                { autoClose: 3000 }
+            );
         } catch (error) {
             console.error('Error al guardar:', error);
-            alert("Error al conectar con el servidor a través del proxy.");
+            toast.error(`No se pudo guardar el caso de ${nombre}.`, { autoClose: 3000 });
         }
     };
     const handleBlur = useCallback((e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -710,8 +740,39 @@ function App() {
         });
     };
 
+    // Cargar casos desde la API al montar
+    useEffect(() => {
+        const cargarCasos = async () => {
+            console.log('🔄 Iniciando carga de casos...');
+            try {
+                const respuesta = await fetch(CASOS_API_URL);
+                console.log('📡 Response status:', respuesta.status);
+                
+                if (!respuesta.ok) {
+                    console.error('❌ Error HTTP:', respuesta.status);
+                    throw new Error(`HTTP ${respuesta.status}`);
+                }
+                
+                const datos = await respuesta.json();
+                console.log('✅ Datos recibidos:', datos);
+                console.log('📦 Es array?', Array.isArray(datos));
+                console.log('📊 Cantidad:', Array.isArray(datos) ? datos.length : 'N/A');
+                
+                const casosApi = Array.isArray(datos) ? datos : [];
+                setCases(casosApi);
+                console.log('📌 Cases seteados:', casosApi);
+            } catch (err: any) {
+                console.error('❌ Error completo:', err.message);
+                setCases([]);
+            }
+        };
+        
+        cargarCasos();
+    }, []);
+
     return (
         <div className="min-h-screen text-slate-800">
+            <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick pauseOnHover theme="colored" />
             <header className="bg-white shadow-md sticky top-0 z-50 relative">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
                     <div className="flex items-center">

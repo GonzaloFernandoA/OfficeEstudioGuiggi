@@ -10,6 +10,29 @@ interface CaseSubmissionResponse {
 }
 
 /**
+ * Obtiene un caso por su identificador
+ * Usa apiClient.get y devuelve directamente el objeto de caso del backend
+ */
+export const getCaseById = async (caseId: string | number): Promise<FormDataState | null> => {
+  try {
+    // armamos el endpoint agregando el id al recurso de casos
+    const endpoint = `/caso/${caseId}`;
+    const response = await apiClient.get<FormDataState>(endpoint);
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    // Si tu backend devuelve otra forma, acá podrías normalizar antes de retornar
+    return response.data as FormDataState;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al obtener el caso';
+    console.error('Error obteniendo caso por id:', caseId, '-', errorMessage);
+    return null;
+  }
+};
+
+/**
  * Envía un caso al servidor
  * Utiliza el mismo apiClient que Ingreso para consistencia
  * Estructura anidada: cliente: {..}, siniestro: {...}, demandados: {...}
