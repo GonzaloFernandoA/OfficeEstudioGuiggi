@@ -186,9 +186,37 @@ const applyAutofillFromClienteApi = (draft: any, basePath: 'cliente' | 'coActor1
     if (fields?.nombreMadre) setNestedValue(draft, `${basePath}.nombreMadre`, String(fields.nombreMadre));
     if (fields?.nombreConyuge) setNestedValue(draft, `${basePath}.nombreConyuge`, String(fields.nombreConyuge));
 
-    // Provincia: NO se cambia la lógica de "retrieve" del front.
-    // Solo seteamos el record-id si viene del JSON (ej: fields.provincia = ["rec..."])
+    // Provincia de la persona (record-id)
     if (fields?.provincia) setNestedValue(draft, `${basePath}.provincia`, normalizeRecordId(fields.provincia));
+
+    // --- NUEVO: completar Datos del Siniestro si viene en el JSON ---
+    const siniestro = fields?.siniestro;
+    if (siniestro && typeof siniestro === 'object') {
+        // fecha -> siniestro.fechaHecho
+        if (siniestro.fecha) {
+            setNestedValue(draft, 'siniestro.fechaHecho', toISODateInput(siniestro.fecha));
+        }
+        // hora -> siniestro.horaHecho
+        if (siniestro.hora) {
+            setNestedValue(draft, 'siniestro.horaHecho', String(siniestro.hora));
+        }
+        // calle -> siniestro.calles
+        if (siniestro.calle) {
+            setNestedValue(draft, 'siniestro.calles', String(siniestro.calle));
+        }
+        // localidad -> siniestro.localidad
+        if (siniestro.localidad) {
+            setNestedValue(draft, 'siniestro.localidad', String(siniestro.localidad));
+        }
+        // provincia (array o id) -> siniestro.provincia
+        if (siniestro.provincia) {
+            setNestedValue(draft, 'siniestro.provincia', normalizeRecordId(siniestro.provincia));
+        }
+        // descripcion -> siniestro.narracionHechos
+        if (siniestro.descripcion) {
+            setNestedValue(draft, 'siniestro.narracionHechos', String(siniestro.descripcion));
+        }
+    }
 };
 
 // Cuando el DNI se borra, limpiamos los campos autocompletados (dejando el DNI intacto).
@@ -1008,7 +1036,7 @@ function App() {
                             />
                             <InputField label="Teléfono" name="coActor1.telefono" type="tel" value={formData.coActor1.telefono} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.telefono')} />
 
-                            <InputField label="Ocupación" name="coActor1.ocupacion" value={formData.coActor1.ocupacion} onChange={handleInputChange} />
+                            <InputField label="Ocupación" name="coActor1.ocupacion" value={formData.coActor1.ocupacion} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.ocupacion')} />
                             <InputField label="Sueldo Aproximado" name="coActor1.sueldo" value={formData.coActor1.sueldo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.sueldo')} />
                             <InputField label="Lugar de Trabajo / Empresa" name="coActor1.lugarTrabajo" value={formData.coActor1.lugarTrabajo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.lugarTrabajo')} />
                             <InputField label="ART" name="coActor1.art" value={formData.coActor1.art} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.art')} />
