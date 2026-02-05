@@ -1,4 +1,4 @@
-﻿// Fix: Removed self-import from './types' which was causing declaration conflicts.
+﻿﻿// Fix: Removed self-import from './types' which was causing declaration conflicts.
 
 export interface Lesiones {
   centroMedico1: string;
@@ -156,6 +156,7 @@ export interface FormDataState {
   };
 }
 
+// --- Ingreso (Formulario de Siniestro inicial) ---
 export interface Siniestro {
   fecha: string;
   hora: string;
@@ -177,4 +178,10 @@ export interface Damnificado {
 export interface IngresoFormData {
   siniestro: Siniestro;
   damnificados: Damnificado[];
+  // Nueva sección: Clasificación Final del Caso en Ingreso
+  clasificacionFinal: {
+    areaPolicial: string;
+    lesiones: string;
+    reclamo: string;
+  };
 }
