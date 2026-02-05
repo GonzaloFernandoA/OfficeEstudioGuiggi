@@ -6,31 +6,12 @@ import AddressRow from './AddressRow';
 import { geographicService } from '../services/geographicService';
 import { apiClient } from '../services/apiClient';
 import AudioRecorder from './AudioRecorder';
+import type { IngresoFormData } from '../types';
+import { CLASIFICACION_LESIONES_OPTIONS, TIPO_RECLAMO_OPTIONS, ACTUACIONES_PENALES_OPTIONS } from '../constants';
+import SelectField from './SelectField';
 
-interface Siniestro {
-    fecha: string;
-    hora: string;
-    calle: string;
-    localidad: string;
-    provincia: string; // ahora almacena el id de la provincia
-    descripcion: string;
-}
-
-interface Damnificado {
-    nombre: string;
-    apellido: string;
-    dni: string;
-    calle: string;
-    localidad: string;
-    provincia: string; // id de provincia
-}
-
-interface IngresoFormData {
-    siniestro: Siniestro;
-    damnificados: Damnificado[];
-}
-
-const emptySiniestro = (): Siniestro => ({
+// Estado inicial helpers
+const emptySiniestro = () => ({
     fecha: '',
     hora: '',
     calle: '',
@@ -39,7 +20,7 @@ const emptySiniestro = (): Siniestro => ({
     descripcion: '',
 });
 
-const emptyDamnificado = (): Damnificado => ({
+const emptyDamnificado = () => ({
     nombre: '',
     apellido: '',
     dni: '',
@@ -48,10 +29,17 @@ const emptyDamnificado = (): Damnificado => ({
     provincia: '',
 });
 
+const emptyClasificacionFinal = () => ({
+    areaPolicial: '',
+    lesiones: '',
+    reclamo: '',
+});
+
 const Ingreso: React.FC = () => {
     const [formData, setFormData] = useState<IngresoFormData>({
         siniestro: emptySiniestro(),
         damnificados: [emptyDamnificado()],
+        clasificacionFinal: emptyClasificacionFinal(),
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -124,7 +112,7 @@ const Ingreso: React.FC = () => {
     // Handlers
     const handleSiniestroChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setIsSaved(false); // Resetear estado al cambiar datos
+        setIsSaved(false);
         setFormData(prev => ({
             ...prev,
             siniestro: { ...prev.siniestro, [name]: value }
@@ -142,6 +130,15 @@ const Ingreso: React.FC = () => {
             damnificados: prev.damnificados.map((d, i) =>
                 i === index ? { ...d, [name]: value } : d
             )
+        }));
+    };
+
+    const handleClasificacionChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setIsSaved(false);
+        setFormData(prev => ({
+            ...prev,
+            clasificacionFinal: { ...prev.clasificacionFinal, [name]: value },
         }));
     };
 
@@ -204,11 +201,6 @@ const Ingreso: React.FC = () => {
             return `${dd}/${mm}/${yyyy}`;
         }
         return dateStr; // si no se puede formatear, devolver original
-    };
-
-    const toRecordIdArray = (id: string) => {
-        const v = (id || '').trim();
-        return v ? [v] : [];
     };
 
     // Función que abre una nueva ventana con el convenio listo para imprimir
@@ -293,27 +285,28 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
         setMessage(null);
 
         try {
-            // Preparar el JSON para enviar
-                const resolveProvinciaId = (val: string) => {
-                    const v = (val || '').trim();
-                    if (!v) return '';
-                    // If it's already an id
-                    if (geographicService.getProvinciaById(v)) return v;
-                    // Try to find by nombre (case-insensitive)
-                    const found = (geographicService.getProvincias() || []).find(p => String(p.nombre || '').toLowerCase() === v.toLowerCase());
-                    if (found) return found.id;
-                    // As fallback, also try slugifying the name to match API behavior
-                    const slug = String(v).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                    if (geographicService.getProvinciaById(slug)) return slug;
-                    return v; // leave as-is if not resolvable
-                };
+            const resolveProvinciaId = (val: string) => {
+                const v = (val || '').trim();
+                if (!v) return '';
+                if (geographicService.getProvinciaById(v)) return v;
+                const found = (geographicService.getProvincias() || []).find(p => String(p.nombre || '').toLowerCase() === v.toLowerCase());
+                if (found) return found.id;
+                const slug = String(v).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                if (geographicService.getProvinciaById(slug)) return slug;
+                return v;
+            };
+
+            const toRecordIdArray = (id: string) => {
+                const v = (id || '').trim();
+                return v ? [v] : [];
+            };
 
             const siniestroPayload = {
                 fecha: formData.siniestro.fecha.trim(),
                 hora: formData.siniestro.hora.trim(),
                 calle: formData.siniestro.calle.trim(),
                 localidad: formData.siniestro.localidad.trim(),
-                provincia: toRecordIdArray(resolveProvinciaId(formData.siniestro.provincia)), // 👈 array
+                provincia: toRecordIdArray(resolveProvinciaId(formData.siniestro.provincia)),
                 descripcion: formData.siniestro.descripcion.trim(),
             };
 
@@ -323,26 +316,21 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                 dni: d.dni.trim(),
                 calle: d.calle.trim(),
                 localidad: d.localidad.trim(),
-                provincia: toRecordIdArray(resolveProvinciaId(d.provincia)), // 👈 array
+                provincia: toRecordIdArray(resolveProvinciaId(d.provincia)),
             }));
 
             const payload = {
                 ...siniestroPayload,
                 damnificados: damnificadosPayload,
+                clasificacionFinal: {
+                    areaPolicial: formData.clasificacionFinal.areaPolicial.trim(),
+                    lesiones: formData.clasificacionFinal.lesiones.trim(),
+                    reclamo: formData.clasificacionFinal.reclamo.trim(),
+                },
             };
 
             console.log('JSON enviado:', JSON.stringify(payload, null, 2));
-            // Para depuración, mostrar resolución de nombres a ids cuando haya diferencias
-                try {
-                    const originalProv = formData.siniestro.provincia;
-                    const resolvedProv = siniestroPayload.provincia;
-                    if (originalProv && originalProv !== resolvedProv) {
-                        console.log(`Provincia siniestro resuelta: "${originalProv}" -> "${resolvedProv}"`);
-                    }
-                } catch (e) { /* ignore */ }
 
-
-            // Enviar JSON al backend (objeto, no array)
             const response = await apiClient.post('/siniestro', payload);
 
             if (response.error) {
@@ -350,10 +338,7 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
             }
 
             setMessage({ type: 'success', text: '✅ Siniestro y damnificados grabados exitosamente.' });
-            setIsSaved(true); // Marcar como guardado para habilitar el botón de convenio
-
-            // NO resetear formulario, mantener los datos en los controles.
-            // Limpiar solo los errores.
+            setIsSaved(true);
             setErrors({});
             alert("El caso se ha creado correctamente.");
 
@@ -365,8 +350,6 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
             setLoading(false);
         }
     };
-
-    
 
     return (
         <form onSubmit={handleSubmit} noValidate className="space-y-6">
@@ -525,6 +508,34 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                         Agregar Damnificado
                     </button>
                 </div>
+            </Section>
+
+            {/* Clasificación Final del Caso (debajo de Damnificados) */}
+            <Section title="Clasificación Final del Caso" description="Resumen de la calificación final del siniestro">
+                <SelectField
+                    label="Clasificación Área Policial"
+                    name="areaPolicial"
+                    value={formData.clasificacionFinal.areaPolicial}
+                    onChange={handleClasificacionChange as any}
+                    options={ACTUACIONES_PENALES_OPTIONS}
+                    className="md:col-span-1"
+                />
+                <SelectField
+                    label="Clasificación de Lesiones"
+                    name="lesiones"
+                    value={formData.clasificacionFinal.lesiones}
+                    onChange={handleClasificacionChange as any}
+                    options={CLASIFICACION_LESIONES_OPTIONS}
+                    className="md:col-span-1"
+                />
+                <SelectField
+                    label="Tipo de Reclamo"
+                    name="reclamo"
+                    value={formData.clasificacionFinal.reclamo}
+                    onChange={handleClasificacionChange as any}
+                    options={TIPO_RECLAMO_OPTIONS}
+                    className="md:col-span-1"
+                />
             </Section>
 
             {/* Botón submit */}

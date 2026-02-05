@@ -189,32 +189,35 @@ const applyAutofillFromClienteApi = (draft: any, basePath: 'cliente' | 'coActor1
     // Provincia de la persona (record-id)
     if (fields?.provincia) setNestedValue(draft, `${basePath}.provincia`, normalizeRecordId(fields.provincia));
 
-    // --- NUEVO: completar Datos del Siniestro si viene en el JSON ---
+    // --- Completar Datos del Siniestro si viene en el JSON ---
     const siniestro = fields?.siniestro;
     if (siniestro && typeof siniestro === 'object') {
-        // fecha -> siniestro.fechaHecho
         if (siniestro.fecha) {
             setNestedValue(draft, 'siniestro.fechaHecho', toISODateInput(siniestro.fecha));
         }
-        // hora -> siniestro.horaHecho
         if (siniestro.hora) {
             setNestedValue(draft, 'siniestro.horaHecho', String(siniestro.hora));
         }
-        // calle -> siniestro.calles
         if (siniestro.calle) {
             setNestedValue(draft, 'siniestro.calles', String(siniestro.calle));
         }
-        // localidad -> siniestro.localidad
         if (siniestro.localidad) {
             setNestedValue(draft, 'siniestro.localidad', String(siniestro.localidad));
         }
-        // provincia (array o id) -> siniestro.provincia
         if (siniestro.provincia) {
             setNestedValue(draft, 'siniestro.provincia', normalizeRecordId(siniestro.provincia));
         }
-        // descripcion -> siniestro.narracionHechos
         if (siniestro.descripcion) {
             setNestedValue(draft, 'siniestro.narracionHechos', String(siniestro.descripcion));
+        }
+
+        // --- NUEVO: completar también la Clasificación Final del Caso si viene en el JSON ---
+        const clasificacionFinal = (siniestro as any).clasificacionFinal ?? fields?.clasificacionFinal;
+        if (clasificacionFinal && typeof clasificacionFinal === 'object') {
+            const { areaPolicial, lesiones, reclamo } = clasificacionFinal as any;
+            if (areaPolicial) setNestedValue(draft, 'clasificacionFinal.areaPolicial', String(areaPolicial));
+            if (lesiones) setNestedValue(draft, 'clasificacionFinal.lesiones', String(lesiones));
+            if (reclamo) setNestedValue(draft, 'clasificacionFinal.reclamo', String(reclamo));
         }
     }
 };
@@ -550,7 +553,8 @@ function App() {
     const [formData, setFormData] = useState<FormDataState>(initialState);
     const clienteLookup = useAutofillByDni('cliente', formData, setFormData, !!editingCaseId);
     const coActor1Lookup = useAutofillByDni('coActor1', formData, setFormData, false);
-    const titularLookup = useAutofillByDni('titularCliente', formData, setFormData, !!editingCaseId);
+    // Eliminamos el autofill para titularCliente para que NO haga búsquedas por DNI
+    // const titularLookup = useAutofillByDni('titularCliente', formData, setFormData, !!editingCaseId);
     const [errors, setErrors] = useState<ValidationErrors>({});
     const [view, setView] = useState<View>('dashboard');
 
@@ -975,10 +979,17 @@ function App() {
 
                         {/* Titular Registral */}
                         <Section title="Datos del Titular Registral">
-                            <InputField label="D.N.I." name="titularCliente.dni" value={formData.titularCliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'titularCliente.dni')} required disabled={!!editingCaseId} title={editingCaseId ? "El DNI no puede ser modificado al editar un caso existente" : ""} />
-                            <div className={`md:col-span-3 text-sm min-h-[1.25rem] ${titularLookup.error ? 'text-red-600' : 'text-slate-500'}`}>
-                                {titularLookup.loading ? 'Buscando datos por DNI...' : (titularLookup.error ? titularLookup.error : '\u00A0')}
-                            </div>
+                            <InputField
+                                label="D.N.I. del Titular"
+                                name="titularCliente.dni"
+                                value={formData.titularCliente.dni}
+                                onChange={handleInputChange}
+                                onBlur={handleBlur}
+                                error={getNestedValue(errors, 'titularCliente.dni')}
+                                required
+                                disabled={!!editingCaseId}
+                                title={editingCaseId ? "El DNI no puede ser modificado al editar un caso existente" : ""}
+                            />
                             <InputField label="Nombre del Titular" name="titularCliente.nombre" value={formData.titularCliente.nombre} onChange={handleInputChange} />
                             <InputField label="Fecha de Nacimiento del Titular" name="titularCliente.fechaNacimiento" type="date" value={formData.titularCliente.fechaNacimiento} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'titularCliente.fechaNacimiento')} />
                             <SelectField label="Estado Civil" name="titularCliente.estadoCivil" value={formData.titularCliente.estadoCivil} onChange={handleInputChange} options={ESTADO_CIVIL_OPTIONS} />
