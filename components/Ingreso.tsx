@@ -210,7 +210,22 @@ const Ingreso: React.FC = () => {
             alert('No se pudo abrir la ventana de impresión. Revisa el bloqueador de pop-ups.');
             return;
         }
-        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Convenio</title><style>body{font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding:20px} pre{white-space:pre-wrap; font-size:14px}</style></head><body><pre>${escapeHtml(text)}</pre></body></html>`;
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Convenio</title><style>
+            body {
+                font-family: "Courier New", Courier, monospace;
+                font-size: 12pt;
+                padding: 20px;
+                text-align: justify;
+                line-height: 1.2;
+            }
+            pre {
+                white-space: pre-wrap;
+                font-family: "Courier New", Courier, monospace;
+                font-size: 12pt;
+                text-align: justify;
+                line-height: 1.2;
+            }
+        </style></head><body><pre>${escapeHtml(text)}</pre></body></html>`;
         w.document.open();
         w.document.write(html);
         w.document.close();

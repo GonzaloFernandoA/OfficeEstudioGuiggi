@@ -364,71 +364,12 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
                       <DetailItem label="Lesiones" value={displayCase.clasificacionFinal.lesiones.toUpperCase()} />
                       <DetailItem label="Reclamo" value={displayCase.clasificacionFinal.reclamo} />
                     </DetailSection>
-
-                    <div className="mt-6 space-y-4">
-                      <button
-                        onClick={handleGenerateSummary}
-                        disabled={isSummarizing}
-                        className="inline-flex items-center justify-center w-full px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
-                      >
-                        {isSummarizing ? (
-                          <>
-                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Generando Resumen...
-                          </>
-                        ) : 'Generar Resumen con IA'}
-                      </button>
-                      <button
-                        onClick={handleGenerateConvenio}
-                        className="inline-flex items-center justify-center w-full px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                      >
-                        Generar Convenio de Honorarios
-                      </button>
-                      {summaryError && <p className="mt-2 text-sm text-red-600 text-center">{summaryError}</p>}
-                      {summary && (
-                        <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                          <h4 className="text-md font-semibold text-slate-800 mb-2">Resumen del Caso</h4>
-                          <div className="text-sm text-slate-700 whitespace-pre-wrap prose prose-sm max-w-none">{summary}</div>
-                        </div>
-                      )}
-                    </div>
                   </>
                 );
               })()}
             </div>
           </div>
         </div>
-      )}
-
-      {isConvenioVisible && (
-         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4" onClick={() => setIsConvenioVisible(false)}>
-            <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                 <div className="border-b border-slate-200 px-6 py-4 flex justify-between items-center">
-                    <h3 className="text-xl font-bold text-slate-800">Convenio de Honorarios</h3>
-                    <button onClick={() => setIsConvenioVisible(false)} className="text-slate-400 hover:text-slate-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-                <div className="p-6 overflow-y-auto flex-grow">
-                    <textarea
-                        readOnly
-                        value={convenioText}
-                        className="w-full h-full p-4 font-mono text-sm bg-slate-50 border border-slate-200 rounded-md resize-none"
-                    ></textarea>
-                </div>
-                <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end space-x-3">
-                    <button onClick={handlePrintConvenio} className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-md border border-slate-300">
-                        Imprimir
-                    </button>
-                    <button onClick={handleCopyConvenio} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md min-w-[120px]">
-                        {copyButtonText}
-                    </button>
-                </div>
-            </div>
-         </div>
       )}
 
       {caseToDelete && (
