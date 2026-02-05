@@ -51,11 +51,11 @@ jobs:
 
       - name: Invalidate CloudFront (Only Production)
         if: github.ref_name == 'release202512'
-        uses: chetan/cloudfront-invalidation-action@v2
-        with:
-          distribution-id: ${{ secrets.CLOUDFRONT_DIST_ID }}
-          paths: "/*"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DIST_ID }} \
+            --paths "/*"
