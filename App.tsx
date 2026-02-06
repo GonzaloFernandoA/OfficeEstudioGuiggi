@@ -661,7 +661,11 @@ function App() {
     };
 
     const handleDelete = (caseId: number) => {
-        setCases(prevCases => prevCases.filter(c => c.id !== caseId));
+        // Ahora caseId es el DNI que envía el Dashboard (onDelete(dni))
+        setCases(prevCases => prevCases.filter(c => {
+            const dni = (c as any).cliente?.dni || (c as any).dni;
+            return String(dni) !== String(caseId);
+        }));
     };
 
     const cancelEdit = () => {

@@ -4,6 +4,7 @@ import { ACTUACIONES_PENALES_OPTIONS, CLASIFICACION_LESIONES_OPTIONS, TIPO_RECLA
 import { generateCaseSummary } from '../services/geminiService';
 import { generateConvenioDeHonorarios } from '../services/documentService';
 import { exportCasoToExcel } from '../services/exportService';
+import { deleteCaseByDni } from '../services/caseService';
 
 interface DashboardProps {
   cases: FormDataState[];
@@ -168,9 +169,21 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
     }, 1000);
   };
 
-  const handleDeleteConfirm = () => {
-      if (caseToDelete?.id) {
-          onDelete(caseToDelete.id);
+  const handleDeleteConfirm = async () => {
+      if (caseToDelete) {
+          const dni = caseToDelete.cliente?.dni || caseToDelete.dni;
+          if (!dni) {
+              console.error('No se pudo obtener el DNI del caso a eliminar');
+          } else {
+              const result = await deleteCaseByDni(dni);
+              if (!result.success) {
+                  alert(`No se pudo eliminar el caso. Detalle: ${result.error || 'Error desconocido'}`);
+                  setCaseToDelete(null);
+                  return;
+              }
+              // Notificar al padre para que actualice el estado local (App.tsx)
+              onDelete(dni as any);
+          }
       }
       setCaseToDelete(null);
   }
