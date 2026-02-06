@@ -32,13 +32,17 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ name, value, onChange }) 
                 setTranscriptionError(null);
                 try {
                     const transcription = await transcribeAudio(audioBlob);
-                    const mockEvent = { target: { name, value: transcription } } as React.ChangeEvent<HTMLTextAreaElement>;
+                    // Append transcripción al texto existente en lugar de sobrescribir
+                    const previous = value || '';
+                    const separator = previous.trim() ? '\n' : '';
+                    const newValue = previous + separator + transcription;
+                    const mockEvent = { target: { name, value: newValue } } as React.ChangeEvent<HTMLTextAreaElement>;
                     onChange(mockEvent);
                 } catch (err) {
                     if (err instanceof Error) {
                         setTranscriptionError(err.message);
                     } else {
-                        setTranscriptionError("Ocurrió un error desconocido durante la transcripción.");
+                        setTranscriptionError('Ocurrió un error desconocido durante la transcripción.');
                     }
                 } finally {
                     setIsTranscribing(false);
@@ -47,7 +51,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ name, value, onChange }) 
             handleTranscription();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [recordingStatus, audioBlob, name]);
+    }, [recordingStatus, audioBlob, name, value]);
 
     const handleRecordClick = () => {
         if (recordingStatus === 'recording') {

@@ -552,8 +552,8 @@ function App() {
     const [editingCaseId, setEditingCaseId] = useState<number | null>(null);
     const [formData, setFormData] = useState<FormDataState>(initialState);
     const clienteLookup = useAutofillByDni('cliente', formData, setFormData, !!editingCaseId);
-    const coActor1Lookup = useAutofillByDni('coActor1', formData, setFormData, false);
-    // Eliminamos el autofill para titularCliente para que NO haga búsquedas por DNI
+    // Eliminamos la búsqueda automática por DNI para Co-Actor 1
+    // const coActor1Lookup = useAutofillByDni('coActor1', formData, setFormData, false);
     // const titularLookup = useAutofillByDni('titularCliente', formData, setFormData, !!editingCaseId);
     const [errors, setErrors] = useState<ValidationErrors>({});
     const [view, setView] = useState<View>('dashboard');
@@ -1018,10 +1018,14 @@ function App() {
 
                         {/* Co-Actor (Opcional) */}
                         <Section title="Datos del Co-Actor 1 (Opcional)" description="Completar solo si existe otro actor en el caso">
-                            <InputField label="D.N.I." name="coActor1.dni" value={formData.coActor1.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.dni')} />
-                            <div className={`md:col-span-3 text-sm min-h-[1.25rem] ${coActor1Lookup.error ? 'text-red-600' : 'text-slate-500'}`}>
-                                {coActor1Lookup.loading ? 'Buscando datos por DNI...' : (coActor1Lookup.error ? coActor1Lookup.error : '\u00A0')}
-                            </div>
+                            <InputField
+                                label="D.N.I."
+                                name="coActor1.dni"
+                                value={formData.coActor1.dni}
+                                onChange={handleInputChange}
+                                onBlur={handleBlur}
+                                error={getNestedValue(errors, 'coActor1.dni')}
+                            />
                             <InputField label="Nombre y Apellido" name="coActor1.nombreCompleto" value={formData.coActor1.nombreCompleto} onChange={handleInputChange} />
                             <InputField label="Fecha de Nacimiento" name="coActor1.fechaNacimiento" type="date" value={formData.coActor1.fechaNacimiento} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'coActor1.fechaNacimiento')} />
                             <SelectField label="Estado Civil" name="coActor1.estadoCivil" value={formData.coActor1.estadoCivil} onChange={handleInputChange} options={ESTADO_CIVIL_OPTIONS} />
