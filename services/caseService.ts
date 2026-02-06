@@ -84,3 +84,23 @@ export const validateCaseForSubmission = (caseData: FormDataState): { valid: boo
     errors,
   };
 };
+
+/**
+ * Elimina un caso por DNI utilizando método DELETE sobre /caso/{dni}
+ */
+export const deleteCaseByDni = async (dni: string | number): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const endpoint = `/caso/${dni}`;
+    const response = await apiClient.delete<any>(endpoint);
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al eliminar el caso';
+    console.error('Error eliminando caso por DNI:', dni, '-', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+};
