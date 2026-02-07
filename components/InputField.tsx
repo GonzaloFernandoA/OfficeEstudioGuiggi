@@ -14,6 +14,8 @@ interface InputFieldProps {
   required?: boolean;
   helpText?: string;
   error?: string;
+  disabled?: boolean;
+  title?: string;
 }
 
 const InputField: React.FC<InputFieldProps> = ({
@@ -30,6 +32,8 @@ const InputField: React.FC<InputFieldProps> = ({
   required = false,
   helpText,
   error,
+  disabled = false,
+  title = '',
 }) => {
   const commonProps = {
     name,
@@ -37,10 +41,14 @@ const InputField: React.FC<InputFieldProps> = ({
     onChange,
     onBlur,
     placeholder,
+    disabled,
+    title,
     // Fix: Cast the value to a boolean to satisfy the type requirements for the 'aria-invalid' attribute.
     'aria-invalid': !!error,
     className: `w-full px-3 py-2 bg-slate-50 border rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 sm:text-sm ${
-      error
+      disabled
+        ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed'
+        : error
         ? 'border-red-500 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500'
         : 'border-slate-300 focus:ring-indigo-500 focus:border-indigo-500'
     }`,
