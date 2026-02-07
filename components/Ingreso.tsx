@@ -9,6 +9,7 @@ import AudioRecorder from './AudioRecorder';
 import type { IngresoFormData } from '../types';
 import { CLASIFICACION_LESIONES_OPTIONS, TIPO_RECLAMO_OPTIONS, ACTUACIONES_PENALES_OPTIONS } from '../constants';
 import SelectField from './SelectField';
+import { toast } from 'react-toastify';
 
 // Estado inicial helpers
 const emptySiniestro = () => ({
@@ -44,8 +45,7 @@ const Ingreso: React.FC = () => {
 
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-    
+
     // Estado para mostrar el convenio generado en modal
     const [convenioText, setConvenioText] = useState<string | null>(null);
     const [showConvenioModal, setShowConvenioModal] = useState(false);
@@ -292,28 +292,31 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validateForm()) {
-            setMessage({ type: 'error', text: 'Por favor, corrija los errores en el formulario.' });
+            toast.error('Por favor, corrija los errores en el formulario.', { autoClose: 3000 });
             return;
         }
 
         setLoading(true);
-        setMessage(null);
 
         try {
-            const resolveProvinciaId = (val: string) => {
+            // Helper: dado un valor que puede ser id o nombre, devolver siempre el NOMBRE de la provincia
+            const resolveProvinciaNombre = (val: string): string => {
                 const v = (val || '').trim();
                 if (!v) return '';
-                if (geographicService.getProvinciaById(v)) return v;
-                const found = (geographicService.getProvincias() || []).find(p => String(p.nombre || '').toLowerCase() === v.toLowerCase());
-                if (found) return found.id;
-                const slug = String(v).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                if (geographicService.getProvinciaById(slug)) return slug;
-                return v;
-            };
 
-            const toRecordIdArray = (id: string) => {
-                const v = (id || '').trim();
-                return v ? [v] : [];
+                // 1) Si coincide con un ID conocido, devolver el nombre
+                const byId = geographicService.getProvinciaById(v);
+                if (byId?.nombre) return String(byId.nombre);
+
+                // 2) Si coincide por nombre (case-insensitive), devolver el nombre normalizado
+                const lower = v.toLowerCase();
+                const byName = (geographicService.getProvincias() || []).find(p =>
+                    String(p.nombre || '').toLowerCase() === lower
+                );
+                if (byName?.nombre) return String(byName.nombre);
+
+                // 3) Fallback: devolver tal cual (ya es un nombre libre)
+                return v;
             };
 
             const siniestroPayload = {
@@ -321,7 +324,8 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                 hora: formData.siniestro.hora.trim(),
                 calle: formData.siniestro.calle.trim(),
                 localidad: formData.siniestro.localidad.trim(),
-                provincia: toRecordIdArray(resolveProvinciaId(formData.siniestro.provincia)),
+                // Provincia como NOMBRE único (string), no array
+                provincia: resolveProvinciaNombre(formData.siniestro.provincia),
                 descripcion: formData.siniestro.descripcion.trim(),
             };
 
@@ -331,12 +335,18 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                 dni: d.dni.trim(),
                 calle: d.calle.trim(),
                 localidad: d.localidad.trim(),
-                provincia: toRecordIdArray(resolveProvinciaId(d.provincia)),
+                // Provincia como NOMBRE único (string), no array
+                provincia: resolveProvinciaNombre(d.provincia),
             }));
 
             const payload = {
                 ...siniestroPayload,
                 damnificados: damnificadosPayload,
+                clasificacion: {
+                    areaPolicial: formData.clasificacionFinal.areaPolicial.trim(),
+                    lesiones: formData.clasificacionFinal.lesiones.trim(),
+                    reclamo: formData.clasificacionFinal.reclamo.trim(),
+                },
                 clasificacionFinal: {
                     areaPolicial: formData.clasificacionFinal.areaPolicial.trim(),
                     lesiones: formData.clasificacionFinal.lesiones.trim(),
@@ -344,7 +354,8 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                 },
             };
 
-            console.log('JSON enviado:', JSON.stringify(payload, null, 2));
+            console.log('[Ingreso] Payload completo enviado a /siniestro =', payload);
+            console.log('[Ingreso] Payload JSON string =', JSON.stringify(payload));
 
             const response = await apiClient.post('/siniestro', payload);
 
@@ -352,15 +363,15 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                 throw new Error(response.error);
             }
 
-            setMessage({ type: 'success', text: '✅ Siniestro y damnificados grabados exitosamente.' });
             setIsSaved(true);
             setErrors({});
-            alert("El caso se ha creado correctamente.");
+
+            toast.success('El siniestro y los damnificados fueron grabados correctamente.', { autoClose: 3000 });
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Error desconocido al enviar el ingreso.';
-            setMessage({ type: 'error', text: `❌ ${errorMessage}` });
             console.error('Error en envío:', error);
+            toast.error(`No se pudo grabar el siniestro. Detalle: ${errorMessage}`, { autoClose: 3000 });
         } finally {
             setLoading(false);
         }
@@ -561,9 +572,9 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                         setFormData({
                             siniestro: emptySiniestro(),
                             damnificados: [emptyDamnificado()],
+                            clasificacionFinal: emptyClasificacionFinal(),
                         });
                         setErrors({});
-                        setMessage(null);
                         setIsSaved(false); // Deshabilitar convenio al limpiar
                     }}
                     className="px-6 py-3 border border-slate-300 shadow-lg text-base font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50"
