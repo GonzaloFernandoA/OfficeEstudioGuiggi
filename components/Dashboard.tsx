@@ -4,7 +4,7 @@ import { ACTUACIONES_PENALES_OPTIONS, CLASIFICACION_LESIONES_OPTIONS, TIPO_RECLA
 import { generateCaseSummary } from '../services/geminiService';
 import { generateConvenioDeHonorarios } from '../services/documentService';
 import { exportCasoToExcel } from '../services/exportService';
-import { deleteCaseByDni } from '../services/caseService';
+import { deleteCaseByDni, getCaseById } from '../services/caseService';
 
 interface DashboardProps {
   cases: FormDataState[];
@@ -52,6 +52,10 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
   const [convenioText, setConvenioText] = useState('');
   const [isConvenioVisible, setIsConvenioVisible] = useState(false);
   const [copyButtonText, setCopyButtonText] = useState('Copiar Texto');
+
+  // Historia Clinica State
+  const [hcText, setHcText] = useState('');
+  const [isHcVisible, setIsHcVisible] = useState(false);
 
   // Case Details State (from API)
   const [caseDetails, setCaseDetails] = useState<FormDataState | null>(null);
@@ -221,6 +225,135 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
     }
   };
 
+  const buildHistoriaClinicaText = (data: FormDataState): string => {
+    const cliente = data.cliente || ({} as any);
+    const siniestro = data.siniestro || ({} as any);
+    const vehiculo = (data as any).vehiculoCliente || ({} as any);
+    const demandados = (data as any).demandados || ({} as any);
+
+    const up = (val: any) => String(val ?? '').toUpperCase();
+
+    const nombre = up(cliente.nombreCompleto);
+    const dni = up(cliente.dni);
+    const fechaNac = up(cliente.fechaNacimiento);
+    const calle = up(cliente.domicilio);
+    const localidad = up(cliente.localidad);
+    const provincia = up(cliente.provincia);
+    const telefono = up(cliente.telefono);
+
+    const fechaHecho = up(siniestro.fechaHecho);
+    const horaHecho = up(siniestro.horaHecho);
+    const calleSiniestro = up(siniestro.calles || siniestro.calle);
+    const localidadSiniestro = up(siniestro.localidad);
+    const provinciaSiniestro = up(siniestro.provincia);
+
+    const primeraAtencion = up(cliente.lesiones?.centroMedico1);
+    const zonasAfectadasApi: string[] = (cliente.lesiones?.zonasAfectadas || []).map((z: string) => up(z));
+    const zonasAfectadasLine = zonasAfectadasApi.join(', ');
+
+    const vehiculoDesc = up(vehiculo.vehiculo);
+    const mecanica = up(
+      siniestro.mecanicaAccidente === 'Otros'
+        ? (siniestro.otraMecanica || '')
+        : (siniestro.mecanicaAccidente || '')
+    );
+    const seguro = up(demandados.companiaSeguros?.nombre);
+
+    // Lista fija de zonas para la sección de LESIONES, enumerada
+    const zonasFijas = [
+      'CERVICAL',
+      'HOMBRO IZQUIERDO',
+      'HOMBRO DERECHO',
+      'MUÑECA IZQUIERDA',
+      'MUÑECA DERECHA',
+      'RODILLA IZQUIERDA',
+      'RODILLA DERECHA',
+      'TOBILLO IZQUIERDO',
+      'TOBILLO DERECHO',
+      'LUMBAR',
+    ];
+
+    const lesionesEnumeradasFijas = zonasFijas
+      .map((zona, idx) => `${idx + 1}. ${zona}`)
+      .join('\n');
+
+    return [
+      'Consultorio Medico',
+      '',
+      `A Paciente ${nombre} ${dni ? `(DNI ${dni})` : ''}`.trim(),
+      `Fecha Nac ${fechaNac}`,
+      `Domicilio Calle ${calle} ${localidad} ${provincia}`.trim(),
+      `TEL: ${telefono}`,
+      '',
+      `Dia del Accidente ${fechaHecho} Hora ${horaHecho}`.trim(),
+      `Escenario del Accidente: ${calleSiniestro}`,
+      `Localidad y Partido: ${localidadSiniestro} ${provinciaSiniestro}`.trim(),
+      `Primera Atencion: ${primeraAtencion}`,
+      `Presento lesiones en: ${zonasAfectadasLine}`,
+      `Tipo de accidente: ${vehiculoDesc}`,
+      `Mecanica del Hecho sobre accidente : ${mecanica}`,
+      `Seguro ${seguro}`,
+      '',
+      'Lesiones:',
+      lesionesEnumeradasFijas,
+    ].join('\n');
+  };
+
+  const handleGenerateHC = async () => {
+    if (!selectedCase) return;
+    const dni = selectedCase.cliente?.dni || selectedCase.dni;
+    if (!dni) {
+      alert('No se pudo obtener el DNI para generar la HC.');
+      return;
+    }
+    try {
+      const remoteCase = await getCaseById(dni);
+      const baseCase = remoteCase || selectedCase;
+      const text = buildHistoriaClinicaText(baseCase as FormDataState);
+      setHcText(text);
+      setIsHcVisible(true);
+    } catch (err) {
+      console.error('[Dashboard] Error generando HC:', err);
+      alert('Ocurrió un error al generar la HC.');
+    }
+  };
+
+  const handlePrintHC = () => {
+    if (!hcText) return;
+    const printableArea = document.createElement('iframe');
+    printableArea.style.position = 'absolute';
+    printableArea.style.width = '0';
+    printableArea.style.height = '0';
+    printableArea.style.border = '0';
+    document.body.appendChild(printableArea);
+
+    const doc = printableArea.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(`
+        <html>
+          <head>
+            <title>Historia Clínica</title>
+            <style>
+              body { font-family: monospace; line-height: 1.5; margin: 40px; }
+              pre { white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 12px; }
+            </style>
+          </head>
+          <body>
+            <pre>${hcText}</pre>
+          </body>
+        </html>
+      `);
+      doc.close();
+      printableArea.contentWindow?.focus();
+      printableArea.contentWindow?.print();
+    }
+
+    setTimeout(() => {
+      document.body.removeChild(printableArea);
+    }, 1000);
+  };
+
   return (
     <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg">
       <h2 className="text-2xl font-bold text-slate-800 mb-4">Tablero de Casos</h2>
@@ -318,11 +451,20 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
           <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
               <h3 className="text-xl font-bold text-slate-800">Detalles del Caso</h3>
-              <button onClick={() => { setSelectedCase(null); setCaseDetails(null); setDetailsError(null); }} className="text-slate-400 hover:text-slate-600">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <div className="flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={handleGenerateHC}
+                  className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500"
+                >
+                  Generar HC
+                </button>
+                <button onClick={() => { setSelectedCase(null); setCaseDetails(null); setDetailsError(null); }} className="text-slate-400 hover:text-slate-600">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
             <div className="p-6">
               {isLoadingDetails && (
@@ -399,6 +541,56 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
               <button onClick={handleDeleteConfirm} className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md">
                 Eliminar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para mostrar HC */}
+      {isHcVisible && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setIsHcVisible(false)}>
+          <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b border-slate-200 px-6 py-4 sticky top-0 bg-white z-10">
+              <h3 className="text-lg font-bold text-slate-800">Historia Clínica</h3>
+              <div className="flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={handlePrintHC}
+                  className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500"
+                >
+                  Imprimir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsHcVisible(false)}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              {/* Render detallado para poder poner en negrita los datos recuperados */}
+              {hcText.split('\n').map((line, idx) => {
+                // Buscamos el patrón "Etiqueta: DATO" o "Etiqueta ... DATO" y ponemos el dato en negrita
+                const parts = line.split(':');
+                if (parts.length > 1) {
+                  const label = parts[0] + ':';
+                  const rest = parts.slice(1).join(':').trim();
+                  return (
+                    <div key={idx} className="font-mono text-sm text-slate-800 whitespace-pre-wrap">
+                      <span>{label} </span>
+                      <strong>{rest}</strong>
+                    </div>
+                  );
+                }
+                // Para líneas sin ":" (título, líneas en blanco, encabezados, lista numerada), las dejamos como están
+                return (
+                  <div key={idx} className="font-mono text-sm text-slate-800 whitespace-pre-wrap">
+                    {line}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
