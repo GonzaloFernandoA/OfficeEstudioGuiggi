@@ -6,31 +6,13 @@ import AddressRow from './AddressRow';
 import { geographicService } from '../services/geographicService';
 import { apiClient } from '../services/apiClient';
 import AudioRecorder from './AudioRecorder';
+import type { IngresoFormData } from '../types';
+import { CLASIFICACION_LESIONES_OPTIONS, TIPO_RECLAMO_OPTIONS, ACTUACIONES_PENALES_OPTIONS } from '../constants';
+import SelectField from './SelectField';
+import { toast } from 'react-toastify';
 
-interface Siniestro {
-    fecha: string;
-    hora: string;
-    calle: string;
-    localidad: string;
-    provincia: string; // ahora almacena el id de la provincia
-    descripcion: string;
-}
-
-interface Damnificado {
-    nombre: string;
-    apellido: string;
-    dni: string;
-    calle: string;
-    localidad: string;
-    provincia: string; // id de provincia
-}
-
-interface IngresoFormData {
-    siniestro: Siniestro;
-    damnificados: Damnificado[];
-}
-
-const emptySiniestro = (): Siniestro => ({
+// Estado inicial helpers
+const emptySiniestro = () => ({
     fecha: '',
     hora: '',
     calle: '',
@@ -39,7 +21,7 @@ const emptySiniestro = (): Siniestro => ({
     descripcion: '',
 });
 
-const emptyDamnificado = (): Damnificado => ({
+const emptyDamnificado = () => ({
     nombre: '',
     apellido: '',
     dni: '',
@@ -48,16 +30,22 @@ const emptyDamnificado = (): Damnificado => ({
     provincia: '',
 });
 
+const emptyClasificacionFinal = () => ({
+    areaPolicial: '',
+    lesiones: '',
+    reclamo: '',
+});
+
 const Ingreso: React.FC = () => {
     const [formData, setFormData] = useState<IngresoFormData>({
         siniestro: emptySiniestro(),
         damnificados: [emptyDamnificado()],
+        clasificacionFinal: emptyClasificacionFinal(),
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-    
+
     // Estado para mostrar el convenio generado en modal
     const [convenioText, setConvenioText] = useState<string | null>(null);
     const [showConvenioModal, setShowConvenioModal] = useState(false);
@@ -124,7 +112,7 @@ const Ingreso: React.FC = () => {
     // Handlers
     const handleSiniestroChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setIsSaved(false); // Resetear estado al cambiar datos
+        setIsSaved(false);
         setFormData(prev => ({
             ...prev,
             siniestro: { ...prev.siniestro, [name]: value }
@@ -142,6 +130,15 @@ const Ingreso: React.FC = () => {
             damnificados: prev.damnificados.map((d, i) =>
                 i === index ? { ...d, [name]: value } : d
             )
+        }));
+    };
+
+    const handleClasificacionChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setIsSaved(false);
+        setFormData(prev => ({
+            ...prev,
+            clasificacionFinal: { ...prev.clasificacionFinal, [name]: value },
         }));
     };
 
@@ -206,11 +203,6 @@ const Ingreso: React.FC = () => {
         return dateStr; // si no se puede formatear, devolver original
     };
 
-    const toRecordIdArray = (id: string) => {
-        const v = (id || '').trim();
-        return v ? [v] : [];
-    };
-
     // Función que abre una nueva ventana con el convenio listo para imprimir
     const handlePrintConvenio = (text: string) => {
         const w = window.open('', '_blank');
@@ -218,7 +210,22 @@ const Ingreso: React.FC = () => {
             alert('No se pudo abrir la ventana de impresión. Revisa el bloqueador de pop-ups.');
             return;
         }
-        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Convenio</title><style>body{font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding:20px} pre{white-space:pre-wrap; font-size:14px}</style></head><body><pre>${escapeHtml(text)}</pre></body></html>`;
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Convenio</title><style>
+            body {
+                font-family: "Courier New", Courier, monospace;
+                font-size: 12pt;
+                padding: 20px;
+                text-align: justify;
+                line-height: 1.2;
+            }
+            pre {
+                white-space: pre-wrap;
+                font-family: "Courier New", Courier, monospace;
+                font-size: 12pt;
+                text-align: justify;
+                line-height: 1.2;
+            }
+        </style></head><body><pre>${escapeHtml(text)}</pre></body></html>`;
         w.document.open();
         w.document.write(html);
         w.document.close();
@@ -285,35 +292,40 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validateForm()) {
-            setMessage({ type: 'error', text: 'Por favor, corrija los errores en el formulario.' });
+            toast.error('Por favor, corrija los errores en el formulario.', { autoClose: 3000 });
             return;
         }
 
         setLoading(true);
-        setMessage(null);
 
         try {
-            // Preparar el JSON para enviar
-                const resolveProvinciaId = (val: string) => {
-                    const v = (val || '').trim();
-                    if (!v) return '';
-                    // If it's already an id
-                    if (geographicService.getProvinciaById(v)) return v;
-                    // Try to find by nombre (case-insensitive)
-                    const found = (geographicService.getProvincias() || []).find(p => String(p.nombre || '').toLowerCase() === v.toLowerCase());
-                    if (found) return found.id;
-                    // As fallback, also try slugifying the name to match API behavior
-                    const slug = String(v).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                    if (geographicService.getProvinciaById(slug)) return slug;
-                    return v; // leave as-is if not resolvable
-                };
+            // Helper: dado un valor que puede ser id o nombre, devolver siempre el NOMBRE de la provincia
+            const resolveProvinciaNombre = (val: string): string => {
+                const v = (val || '').trim();
+                if (!v) return '';
+
+                // 1) Si coincide con un ID conocido, devolver el nombre
+                const byId = geographicService.getProvinciaById(v);
+                if (byId?.nombre) return String(byId.nombre);
+
+                // 2) Si coincide por nombre (case-insensitive), devolver el nombre normalizado
+                const lower = v.toLowerCase();
+                const byName = (geographicService.getProvincias() || []).find(p =>
+                    String(p.nombre || '').toLowerCase() === lower
+                );
+                if (byName?.nombre) return String(byName.nombre);
+
+                // 3) Fallback: devolver tal cual (ya es un nombre libre)
+                return v;
+            };
 
             const siniestroPayload = {
                 fecha: formData.siniestro.fecha.trim(),
                 hora: formData.siniestro.hora.trim(),
                 calle: formData.siniestro.calle.trim(),
                 localidad: formData.siniestro.localidad.trim(),
-                provincia: toRecordIdArray(resolveProvinciaId(formData.siniestro.provincia)), // 👈 array
+                // Provincia como NOMBRE único (string), no array
+                provincia: resolveProvinciaNombre(formData.siniestro.provincia),
                 descripcion: formData.siniestro.descripcion.trim(),
             };
 
@@ -323,50 +335,47 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                 dni: d.dni.trim(),
                 calle: d.calle.trim(),
                 localidad: d.localidad.trim(),
-                provincia: toRecordIdArray(resolveProvinciaId(d.provincia)), // 👈 array
+                // Provincia como NOMBRE único (string), no array
+                provincia: resolveProvinciaNombre(d.provincia),
             }));
 
             const payload = {
                 ...siniestroPayload,
                 damnificados: damnificadosPayload,
+                clasificacion: {
+                    areaPolicial: formData.clasificacionFinal.areaPolicial.trim(),
+                    lesiones: formData.clasificacionFinal.lesiones.trim(),
+                    reclamo: formData.clasificacionFinal.reclamo.trim(),
+                },
+                clasificacionFinal: {
+                    areaPolicial: formData.clasificacionFinal.areaPolicial.trim(),
+                    lesiones: formData.clasificacionFinal.lesiones.trim(),
+                    reclamo: formData.clasificacionFinal.reclamo.trim(),
+                },
             };
 
-            console.log('JSON enviado:', JSON.stringify(payload, null, 2));
-            // Para depuración, mostrar resolución de nombres a ids cuando haya diferencias
-                try {
-                    const originalProv = formData.siniestro.provincia;
-                    const resolvedProv = siniestroPayload.provincia;
-                    if (originalProv && originalProv !== resolvedProv) {
-                        console.log(`Provincia siniestro resuelta: "${originalProv}" -> "${resolvedProv}"`);
-                    }
-                } catch (e) { /* ignore */ }
+            console.log('[Ingreso] Payload completo enviado a /siniestro =', payload);
+            console.log('[Ingreso] Payload JSON string =', JSON.stringify(payload));
 
-
-            // Enviar JSON al backend (objeto, no array)
             const response = await apiClient.post('/siniestro', payload);
 
             if (response.error) {
                 throw new Error(response.error);
             }
 
-            setMessage({ type: 'success', text: '✅ Siniestro y damnificados grabados exitosamente.' });
-            setIsSaved(true); // Marcar como guardado para habilitar el botón de convenio
-
-            // NO resetear formulario, mantener los datos en los controles.
-            // Limpiar solo los errores.
+            setIsSaved(true);
             setErrors({});
-            alert("El caso se ha creado correctamente.");
+
+            toast.success('El siniestro y los damnificados fueron grabados correctamente.', { autoClose: 3000 });
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Error desconocido al enviar el ingreso.';
-            setMessage({ type: 'error', text: `❌ ${errorMessage}` });
             console.error('Error en envío:', error);
+            toast.error(`No se pudo grabar el siniestro. Detalle: ${errorMessage}`, { autoClose: 3000 });
         } finally {
             setLoading(false);
         }
     };
-
-    
 
     return (
         <form onSubmit={handleSubmit} noValidate className="space-y-6">
@@ -527,6 +536,34 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                 </div>
             </Section>
 
+            {/* Clasificación Final del Caso (debajo de Damnificados) */}
+            <Section title="Clasificación Final del Caso" description="Resumen de la calificación final del siniestro">
+                <SelectField
+                    label="Clasificación Área Policial"
+                    name="areaPolicial"
+                    value={formData.clasificacionFinal.areaPolicial}
+                    onChange={handleClasificacionChange as any}
+                    options={ACTUACIONES_PENALES_OPTIONS}
+                    className="md:col-span-1"
+                />
+                <SelectField
+                    label="Clasificación de Lesiones"
+                    name="lesiones"
+                    value={formData.clasificacionFinal.lesiones}
+                    onChange={handleClasificacionChange as any}
+                    options={CLASIFICACION_LESIONES_OPTIONS}
+                    className="md:col-span-1"
+                />
+                <SelectField
+                    label="Tipo de Reclamo"
+                    name="reclamo"
+                    value={formData.clasificacionFinal.reclamo}
+                    onChange={handleClasificacionChange as any}
+                    options={TIPO_RECLAMO_OPTIONS}
+                    className="md:col-span-1"
+                />
+            </Section>
+
             {/* Botón submit */}
             <div className="sticky bottom-0 bg-white/80 backdrop-blur-sm py-4 -mx-8 px-8 border-t border-slate-200 z-10 flex justify-end space-x-4">
                 <button
@@ -535,9 +572,9 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                         setFormData({
                             siniestro: emptySiniestro(),
                             damnificados: [emptyDamnificado()],
+                            clasificacionFinal: emptyClasificacionFinal(),
                         });
                         setErrors({});
-                        setMessage(null);
                         setIsSaved(false); // Deshabilitar convenio al limpiar
                     }}
                     className="px-6 py-3 border border-slate-300 shadow-lg text-base font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50"

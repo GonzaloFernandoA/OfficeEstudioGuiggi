@@ -36,6 +36,7 @@ import ProvinciaSelect from './components/ProvinciaSelect';
 import { getCaseById } from './services/caseService';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { getClienteByDni } from './services/clienteService';
 
 
 const PROVINCIAS_API_URL = 'https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/provincias';
@@ -150,72 +151,64 @@ const normalizeRecordId = (val: any): string => {
     return String(val ?? '');
 };
 
-const applyAutofillFromClienteApi = (draft: any, basePath: 'cliente' | 'coActor1' | 'titularCliente', fields: any) => {
+const applyAutofillFromClienteApi = (draft: any, basePath: 'cliente' , fields: any) => {
+    // Solo usamos estos atributos del cliente: nombre, apellido, calle, localidad, provincia
     const nombre = String(fields?.nombre ?? '').trim();
     const apellido = String(fields?.apellido ?? '').trim();
     const nombreCompleto = [nombre, apellido].filter(Boolean).join(' ').trim();
 
-    if (basePath === 'titularCliente') {
-        setNestedValue(draft, `${basePath}.nombre`, nombreCompleto);
-    } else {
-        setNestedValue(draft, `${basePath}.nombreCompleto`, nombreCompleto);
+    setNestedValue(draft, `${basePath}.nombreCompleto`, nombreCompleto);
+
+    // Dirección: calle -> domicilio, localidad -> localidad, provincia -> provincia
+    const calle = String(fields?.calle ?? '').trim();
+    if (calle) {
+        setNestedValue(draft, `${basePath}.domicilio`, calle);
     }
 
-    // Campos comunes (cuando existan)
-    setNestedValue(draft, `${basePath}.domicilio`, String(fields?.calle ?? fields?.domicilio ?? fields?.direccion ?? ''));
-    setNestedValue(draft, `${basePath}.localidad`, String(fields?.localidad ?? fields?.ciudad ?? ''));
-
-    // Solo Cliente / Co-actor: teléfono y mail
-    if (basePath !== 'titularCliente') {
-        setNestedValue(draft, `${basePath}.telefono`, String(fields?.telefono ?? ''));
-        setNestedValue(draft, `${basePath}.mail`, String(fields?.['Correo electrónico'] ?? fields?.mail ?? fields?.email ?? ''));
+    const localidad = String(fields?.localidad ?? '').trim();
+    if (localidad) {
+        setNestedValue(draft, `${basePath}.localidad`, localidad);
     }
 
-    // Estado civil: preferimos el "Name (from Estados Civiles)" si existe
-    const estadoCivilLabel = Array.isArray(fields?.['Name (from Estados Civiles)'])
-        ? fields['Name (from Estados Civiles)'][0]
-        : (fields?.estadoCivil ?? fields?.estado_civil ?? '');
-    if (estadoCivilLabel) setNestedValue(draft, `${basePath}.estadoCivil`, String(estadoCivilLabel));
+    // Provincia puede venir como id o nombre; guardamos el valor tal cual y luego
+    // en el submit se transformará a nombre real con geographicService
+    if (fields?.provincia != null) {
+        const provinciaVal = normalizeRecordId(fields.provincia);
+        setNestedValue(draft, `${basePath}.provincia`, provinciaVal);
+    }
 
-    // Fecha nacimiento: si el backend la expone (si no, no pisa nada)
-    const fn = fields?.fechaNacimiento ?? fields?.fecha_nacimiento;
-    if (fn) setNestedValue(draft, `${basePath}.fechaNacimiento`, toISODateInput(fn));
+    // Nota: a pedido, NO tocamos teléfono, mail, estadoCivil, fechaNacimiento ni otros campos.
 
-    // Otros posibles campos (si el API los trae)
-    if (fields?.nombrePadre) setNestedValue(draft, `${basePath}.nombrePadre`, String(fields.nombrePadre));
-    if (fields?.nombreMadre) setNestedValue(draft, `${basePath}.nombreMadre`, String(fields.nombreMadre));
-    if (fields?.nombreConyuge) setNestedValue(draft, `${basePath}.nombreConyuge`, String(fields.nombreConyuge));
-
-    // Provincia de la persona (record-id)
-    if (fields?.provincia) setNestedValue(draft, `${basePath}.provincia`, normalizeRecordId(fields.provincia));
-
-    // --- NUEVO: completar Datos del Siniestro si viene en el JSON ---
+    // --- Completar Datos del Siniestro + Clasificación si viene embebido en el JSON ---
     const siniestro = fields?.siniestro;
     if (siniestro && typeof siniestro === 'object') {
-        // fecha -> siniestro.fechaHecho
         if (siniestro.fecha) {
             setNestedValue(draft, 'siniestro.fechaHecho', toISODateInput(siniestro.fecha));
         }
-        // hora -> siniestro.horaHecho
         if (siniestro.hora) {
             setNestedValue(draft, 'siniestro.horaHecho', String(siniestro.hora));
         }
-        // calle -> siniestro.calles
         if (siniestro.calle) {
             setNestedValue(draft, 'siniestro.calles', String(siniestro.calle));
         }
-        // localidad -> siniestro.localidad
         if (siniestro.localidad) {
             setNestedValue(draft, 'siniestro.localidad', String(siniestro.localidad));
         }
-        // provincia (array o id) -> siniestro.provincia
         if (siniestro.provincia) {
             setNestedValue(draft, 'siniestro.provincia', normalizeRecordId(siniestro.provincia));
         }
-        // descripcion -> siniestro.narracionHechos
         if (siniestro.descripcion) {
             setNestedValue(draft, 'siniestro.narracionHechos', String(siniestro.descripcion));
         }
+
+        const clasificacion = siniestro?.clasificacion;
+        if (clasificacion && typeof clasificacion === 'object'){
+            if (clasificacion.areaPolicial)  { setNestedValue(draft  , 'clasificacionFinal.areaPolicial', normalizeRecordId(clasificacion.areaPolicial));  }
+            if (clasificacion.lesiones)  { setNestedValue(draft  , 'clasificacionFinal.lesiones', normalizeRecordId(clasificacion.lesiones));  }
+            if (clasificacion.reclamo)  { setNestedValue(draft  , 'clasificacionFinal.reclamo', normalizeRecordId(clasificacion.reclamo));  }
+
+            }
+
     }
 };
 
@@ -305,27 +298,30 @@ function useAutofillByDni(
             setLoading(true);
 
             try {
-                const res = await fetch(`${CLIENTE_API_URL}?dni=${encodeURIComponent(dni)}`, { signal: controller.signal });
+                const url = `${CLIENTE_API_URL}/${encodeURIComponent(dni)}`;
+                console.log('[useAutofillByDni] Buscando cliente por DNI. URL =', url);
 
-                if (!res.ok) {
-                    if (res.status === 404) {
-                        lastDniRef.current = dni;
-                        setError('No se encontró un cliente para ese DNI.');
-                        setLoading(false);
-                        return;
-                    }
-                    throw new Error(`HTTP ${res.status}`);
+                const resCliente = await getClienteByDni(dni);
+                console.log('[useAutofillByDni] Respuesta completa de getClienteByDni =', resCliente);
+
+                if (resCliente.error) {
+                    console.error('[useAutofillByDni] getClienteByDni devolvió error:', resCliente.error);
+                    lastDniRef.current = dni;
+                    setError('Error consultando cliente por DNI.');
+                    setLoading(false);
+                    return;
                 }
 
-                const apiData = await res.json();
-                const fields = getClienteFieldsFromApi(apiData);
+                const apiDataCliente = resCliente.data;
+                console.log('[useAutofillByDni] Payload cliente recibido (apiDataCliente) =', apiDataCliente);
+
+                const fieldsCliente = apiDataCliente;
+                console.log('[useAutofillByDni] fieldsCliente extraídos =', resCliente);
 
                 lastDniRef.current = dni;
 
-                if (!fields) {
-                    //setError('Respuesta inválida del servicio de clientes.');
-                    //setLoading(false);
-                    lastDniRef.current = dni;
+                if (!resCliente) {
+                    console.warn('[useAutofillByDni] No se encontraron fields en respuesta de cliente para DNI', dni);
                     setError('No se encontró un cliente para ese DNI.');
                     setLoading(false);
                     return;
@@ -333,14 +329,17 @@ function useAutofillByDni(
 
                 setFormData(prev => {
                     const next = JSON.parse(JSON.stringify(prev));
-                    applyAutofillFromClienteApi(next, basePath, fields);
+                    // Solo completamos los campos de Datos del Cliente (Actor Principal):
+                    // Nombre y Apellido, calle (domicilio), localidad y provincia.
+                    applyAutofillFromClienteApi(next, basePath, fieldsCliente);
+                    console.log('[useAutofillByDni] formData actualizado para', basePath, next);
                     return next;
                 });
 
                 setLoading(false);
             } catch (err: any) {
                 if (err?.name === 'AbortError') return;
-                console.error('DNI lookup error:', err);
+                console.error('DNI lookup error (useAutofillByDni):', err);
                 setLoading(false);
                 setError('Error consultando cliente por DNI.');
             }
@@ -550,7 +549,8 @@ function App() {
     const [formData, setFormData] = useState<FormDataState>(initialState);
     const clienteLookup = useAutofillByDni('cliente', formData, setFormData, !!editingCaseId);
     const coActor1Lookup = useAutofillByDni('coActor1', formData, setFormData, false);
-    const titularLookup = useAutofillByDni('titularCliente', formData, setFormData, !!editingCaseId);
+    // Eliminamos el autofill para titularCliente para que NO haga búsquedas por DNI
+    // const titularLookup = useAutofillByDni('titularCliente', formData, setFormData, !!editingCaseId);
     const [errors, setErrors] = useState<ValidationErrors>({});
     const [view, setView] = useState<View>('dashboard');
 
@@ -657,7 +657,11 @@ function App() {
     };
 
     const handleDelete = (caseId: number) => {
-        setCases(prevCases => prevCases.filter(c => c.id !== caseId));
+        // Ahora caseId es el DNI que envía el Dashboard (onDelete(dni))
+        setCases(prevCases => prevCases.filter(c => {
+            const dni = (c as any).cliente?.dni || (c as any).dni;
+            return String(dni) !== String(caseId);
+        }));
     };
 
     const cancelEdit = () => {
@@ -690,6 +694,50 @@ function App() {
         setView('setup');
     }
 
+    // Normaliza en una copia del formData los IDs de provincia a nombre de provincia
+    const mapProvinciaIdsToNames = (data: FormDataState): FormDataState => {
+        const cloned: any = JSON.parse(JSON.stringify(data));
+
+        const replaceProvincia = (obj: any, path: string) => {
+            const id = getNestedValue(obj, path);
+            if (!id) return;
+            const provincia = geographicService.getProvinciaById(String(id));
+            if (provincia?.nombre) {
+                setNestedValue(obj, path, provincia.nombre);
+            }
+        };
+
+        // Cliente principal
+        replaceProvincia(cloned, 'cliente.provincia');
+        // Co-Actor 1
+        replaceProvincia(cloned, 'coActor1.provincia');
+        // Titular Registral
+        replaceProvincia(cloned, 'titularCliente.provincia');
+        // Siniestro
+        replaceProvincia(cloned, 'siniestro.provincia');
+
+        // Demandados principales
+        replaceProvincia(cloned, 'demandados.conductor.provincia');
+        replaceProvincia(cloned, 'demandados.titular.provincia');
+        replaceProvincia(cloned, 'demandados.asegurado.provincia');
+
+        // Tercer vehículo demandado (si existe)
+        if (cloned.tercerVehiculoDemandado) {
+            replaceProvincia(cloned, 'tercerVehiculoDemandado.conductor.provincia');
+            replaceProvincia(cloned, 'tercerVehiculoDemandado.titular.provincia');
+            replaceProvincia(cloned, 'tercerVehiculoDemandado.asegurado.provincia');
+        }
+
+        // Testigos
+        if (Array.isArray(cloned.testigos)) {
+            cloned.testigos.forEach((_: any, idx: number) => {
+                replaceProvincia(cloned, `testigos.${idx}.provincia`);
+            });
+        }
+
+        return cloned as FormDataState;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -701,12 +749,16 @@ function App() {
         const nombre = formData.cliente?.nombreCompleto || 'Sin nombre';
 
         try {
+            // Transformar provincias de ID a nombre antes de enviar
+            const payload = mapProvinciaIdsToNames(formData);
+            console.log('[App] Payload enviado a /caso =', payload);
+
             const response = await fetch(CASOS_API_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(formData),
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
@@ -719,7 +771,7 @@ function App() {
             const caseId = result.id || editingCaseId || Date.now();
 
             const newCase: FormDataState = {
-                ...formData,
+                ...payload,
                 id: caseId,
             };
 
@@ -975,10 +1027,17 @@ function App() {
 
                         {/* Titular Registral */}
                         <Section title="Datos del Titular Registral">
-                            <InputField label="D.N.I." name="titularCliente.dni" value={formData.titularCliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'titularCliente.dni')} required disabled={!!editingCaseId} title={editingCaseId ? "El DNI no puede ser modificado al editar un caso existente" : ""} />
-                            <div className={`md:col-span-3 text-sm min-h-[1.25rem] ${titularLookup.error ? 'text-red-600' : 'text-slate-500'}`}>
-                                {titularLookup.loading ? 'Buscando datos por DNI...' : (titularLookup.error ? titularLookup.error : '\u00A0')}
-                            </div>
+                            <InputField
+                                label="D.N.I. del Titular"
+                                name="titularCliente.dni"
+                                value={formData.titularCliente.dni}
+                                onChange={handleInputChange}
+                                onBlur={handleBlur}
+                                error={getNestedValue(errors, 'titularCliente.dni')}
+                                required
+                                disabled={!!editingCaseId}
+                                title={editingCaseId ? "El DNI no puede ser modificado al editar un caso existente" : ""}
+                            />
                             <InputField label="Nombre del Titular" name="titularCliente.nombre" value={formData.titularCliente.nombre} onChange={handleInputChange} />
                             <InputField label="Fecha de Nacimiento del Titular" name="titularCliente.fechaNacimiento" type="date" value={formData.titularCliente.fechaNacimiento} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'titularCliente.fechaNacimiento')} />
                             <SelectField label="Estado Civil" name="titularCliente.estadoCivil" value={formData.titularCliente.estadoCivil} onChange={handleInputChange} options={ESTADO_CIVIL_OPTIONS} />
