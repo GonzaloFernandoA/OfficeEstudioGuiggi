@@ -451,77 +451,83 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
           <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
               <h3 className="text-xl font-bold text-slate-800">Detalles del Caso</h3>
-              <div className="flex items-center space-x-3">
+              <button onClick={() => { setSelectedCase(null); setCaseDetails(null); setDetailsError(null); }} className="text-slate-400 hover:text-slate-600">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            {/* line-height 1 para todo el contenido de detalles */}
+            <div className="p-6 flex flex-col space-y-4 leading-[1]">
+              {/* Contenido de detalles existente */}
+              <div>
+                {isLoadingDetails && (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <svg className="animate-spin h-10 w-10 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p className="mt-4 text-sm text-slate-600">Cargando detalles del caso...</p>
+                  </div>
+                )}
+
+                {detailsError && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-600">{detailsError}</p>
+                    <p className="text-xs text-red-500 mt-1">Mostrando datos del tablero.</p>
+                  </div>
+                )}
+
+                {!isLoadingDetails && (() => {
+                  const displayCase = caseDetails || selectedCase;
+                  return (
+                    <>
+                      <DetailSection title="Datos del Cliente">
+                        <DetailItem label="Nombre" value={displayCase.cliente.nombreCompleto} />
+                        <DetailItem label="DNI" value={displayCase.cliente.dni} />
+                        <DetailItem label="Fecha de Nacimiento" value={displayCase.cliente.fechaNacimiento} />
+                        <DetailItem label="Teléfono" value={displayCase.cliente.telefono} />
+                        <DetailItem label="Email" value={displayCase.cliente.mail} />
+                        <DetailItem label="Domicilio" value={`${displayCase.cliente.domicilio}, ${displayCase.cliente.localidad}`} />
+                        <DetailItem label="Ocupación" value={displayCase.cliente.ocupacion} />
+                        <DetailItem label="Rol en Accidente" value={displayCase.cliente.rolAccidente} />
+                      </DetailSection>
+
+                      <DetailSection title="Datos del Siniestro">
+                        <DetailItem label="Fecha y Hora" value={`${displayCase.siniestro.fechaHecho} a las ${displayCase.siniestro.horaHecho}hs`} />
+                        <DetailItem label="Lugar" value={displayCase.siniestro.lugarHecho} />
+                        <DetailItem label="Mecánica" value={displayCase.siniestro.mecanicaAccidente === 'Otros' ? displayCase.siniestro.otraMecanica : displayCase.siniestro.mecanicaAccidente} />
+                        <DetailItem label="Narración" value={displayCase.siniestro.narracionHechos} />
+                      </DetailSection>
+
+                      <DetailSection title={`Lesiones de ${displayCase.cliente.nombreCompleto}`}>
+                        <DetailItem label="Tipo de Lesión" value={displayCase.cliente.lesiones.tipoLesion} />
+                        <DetailItem label="Zonas Afectadas" value={displayCase.cliente.lesiones.zonasAfectadas} />
+                        <DetailItem label="Otras Zonas" value={displayCase.cliente.lesiones.otrasZonasAfectadas} />
+                        <DetailItem label="Atención Médica" value={displayCase.cliente.lesiones.centroMedico1} />
+                        <DetailItem label="Modo de Traslado" value={displayCase.cliente.lesiones.modoTraslado} />
+                      </DetailSection>
+
+                      <DetailSection title="Clasificación Final">
+                        <DetailItem label="Área Policial" value={displayCase.clasificacionFinal.areaPolicial} />
+                        <DetailItem label="Lesiones" value={displayCase.clasificacionFinal.lesiones.toUpperCase()} />
+                        <DetailItem label="Reclamo" value={displayCase.clasificacionFinal.reclamo} />
+                      </DetailSection>
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* Botón de generación de HC en la parte inferior */}
+              <div className="flex justify-end pt-4 border-t border-slate-200 mt-2">
                 <button
                   type="button"
                   onClick={handleGenerateHC}
-                  className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500"
+                  className="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500"
                 >
                   Generar HC
                 </button>
-                <button onClick={() => { setSelectedCase(null); setCaseDetails(null); setDetailsError(null); }} className="text-slate-400 hover:text-slate-600">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
               </div>
-            </div>
-            <div className="p-6">
-              {isLoadingDetails && (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <svg className="animate-spin h-10 w-10 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <p className="mt-4 text-sm text-slate-600">Cargando detalles del caso...</p>
-                </div>
-              )}
-
-              {detailsError && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-600">{detailsError}</p>
-                  <p className="text-xs text-red-500 mt-1">Mostrando datos del tablero.</p>
-                </div>
-              )}
-
-              {!isLoadingDetails && (() => {
-                const displayCase = caseDetails || selectedCase;
-                return (
-                  <>
-                    <DetailSection title="Datos del Cliente">
-                      <DetailItem label="Nombre" value={displayCase.cliente.nombreCompleto} />
-                      <DetailItem label="DNI" value={displayCase.cliente.dni} />
-                      <DetailItem label="Fecha de Nacimiento" value={displayCase.cliente.fechaNacimiento} />
-                      <DetailItem label="Teléfono" value={displayCase.cliente.telefono} />
-                      <DetailItem label="Email" value={displayCase.cliente.mail} />
-                      <DetailItem label="Domicilio" value={`${displayCase.cliente.domicilio}, ${displayCase.cliente.localidad}`} />
-                      <DetailItem label="Ocupación" value={displayCase.cliente.ocupacion} />
-                      <DetailItem label="Rol en Accidente" value={displayCase.cliente.rolAccidente} />
-                    </DetailSection>
-
-                    <DetailSection title="Datos del Siniestro">
-                      <DetailItem label="Fecha y Hora" value={`${displayCase.siniestro.fechaHecho} a las ${displayCase.siniestro.horaHecho}hs`} />
-                      <DetailItem label="Lugar" value={displayCase.siniestro.lugarHecho} />
-                      <DetailItem label="Mecánica" value={displayCase.siniestro.mecanicaAccidente === 'Otros' ? displayCase.siniestro.otraMecanica : displayCase.siniestro.mecanicaAccidente} />
-                      <DetailItem label="Narración" value={displayCase.siniestro.narracionHechos} />
-                    </DetailSection>
-
-                    <DetailSection title={`Lesiones de ${displayCase.cliente.nombreCompleto}`}>
-                      <DetailItem label="Tipo de Lesión" value={displayCase.cliente.lesiones.tipoLesion} />
-                      <DetailItem label="Zonas Afectadas" value={displayCase.cliente.lesiones.zonasAfectadas} />
-                      <DetailItem label="Otras Zonas" value={displayCase.cliente.lesiones.otrasZonasAfectadas} />
-                      <DetailItem label="Atención Médica" value={displayCase.cliente.lesiones.centroMedico1} />
-                      <DetailItem label="Modo de Traslado" value={displayCase.cliente.lesiones.modoTraslado} />
-                    </DetailSection>
-
-                    <DetailSection title="Clasificación Final">
-                      <DetailItem label="Área Policial" value={displayCase.clasificacionFinal.areaPolicial} />
-                      <DetailItem label="Lesiones" value={displayCase.clasificacionFinal.lesiones.toUpperCase()} />
-                      <DetailItem label="Reclamo" value={displayCase.clasificacionFinal.reclamo} />
-                    </DetailSection>
-                  </>
-                );
-              })()}
             </div>
           </div>
         </div>
