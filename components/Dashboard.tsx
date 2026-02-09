@@ -336,7 +336,13 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
             <title>Historia Clínica</title>
             <style>
               body { font-family: monospace; line-height: 1.5; margin: 40px; }
-              pre { white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 12px; }
+              pre {
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                font-family: monospace;
+                font-size: 18px;
+                line-height: 1.5;
+              }
             </style>
           </head>
           <body>
