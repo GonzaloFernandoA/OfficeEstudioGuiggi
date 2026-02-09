@@ -246,6 +246,7 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
     const calleSiniestro = up(siniestro.calles || siniestro.calle);
     const localidadSiniestro = up(siniestro.localidad);
     const provinciaSiniestro = up(siniestro.provincia);
+    const narracionHechos = up(siniestro.narracionHechos);
 
     const primeraAtencion = up(cliente.lesiones?.centroMedico1);
     const zonasAfectadasApi: string[] = (cliente.lesiones?.zonasAfectadas || []).map((z: string) => up(z));
@@ -259,7 +260,6 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
     );
     const seguro = up(demandados.companiaSeguros?.nombre);
 
-    // Lista fija de zonas para la sección de LESIONES, enumerada
     const zonasFijas = [
       'CERVICAL',
       'HOMBRO IZQUIERDO',
@@ -293,6 +293,8 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
       `Tipo de accidente: ${vehiculoDesc}`,
       `Mecanica del Hecho sobre accidente : ${mecanica}`,
       `Seguro ${seguro}`,
+      '',
+      `Narración de los hechos: ${narracionHechos}`,
       '',
       'Lesiones:',
       lesionesEnumeradasFijas,
@@ -340,7 +342,7 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
                 white-space: pre-wrap;
                 word-wrap: break-word;
                 font-family: monospace;
-                font-size: 18px;
+                font-size: 16px;
                 line-height: 1.5;
               }
             </style>
