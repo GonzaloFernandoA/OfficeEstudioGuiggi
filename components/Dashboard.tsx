@@ -273,8 +273,18 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
       'LUMBAR',
     ];
 
+    // Formatear lesiones reservando 20 caracteres para el texto y luego dos tabs antes de la casilla
+    const checkBox = '☐';
+
+    const formatLesion = (index: number, texto: string) => {
+      const numero = `${index + 1}. `; // "1. ", "2. ", etc.
+      const baseText = (numero + texto).padEnd(20, ' ');
+      // Dos tabs después del bloque de 20 caracteres para alinear la casilla
+      return `${baseText}\t\t${checkBox}`;
+    };
+
     const lesionesEnumeradasFijas = zonasFijas
-      .map((zona, idx) => `${idx + 1}. ${zona}`)
+      .map((zona, idx) => formatLesion(idx, zona))
       .join('\n');
 
     return [
