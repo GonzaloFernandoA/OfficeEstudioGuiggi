@@ -553,12 +553,35 @@ function App() {
     // const titularLookup = useAutofillByDni('titularCliente', formData, setFormData, !!editingCaseId);
     const [errors, setErrors] = useState<ValidationErrors>({});
     const [view, setView] = useState<View>('dashboard');
+    const [isFormDirty, setIsFormDirty] = useState(false);
+
+    const safeNavigate = (action: () => void) => {
+        if (view === 'form' && isFormDirty) {
+            if (window.confirm('El caso aún no ha sido grabado. ¿Desea salir y perder los cambios?')) {
+                setIsFormDirty(false);
+                action();
+            }
+        } else {
+            action();
+        }
+    };
 
     useEffect(() => {
         geographicService.loadProvincias(PROVINCIAS_API_URL)
             .then(() => console.log('✅ Provincias listas para usar'))
             .catch(err => console.error('⚠️ Falló precarga de provincias', err));
     }, []);
+
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (view === 'form' && isFormDirty) {
+                e.preventDefault();
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [view, isFormDirty]);
+
     const sanitizeDniInput = (name: string, value: string): string => {
         if (name === 'cliente.dni' || name === 'coActor1.dni' || name === 'titularCliente.dni') {
             return String(value || '').replace(/\D/g, '').slice(0, 8);
@@ -571,6 +594,7 @@ function App() {
     const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         const sanitizedValue = sanitizeDniInput(name, value);
+        setIsFormDirty(true);
 
         setFormData(prev => {
             const newState = JSON.parse(JSON.stringify(prev));
@@ -588,6 +612,7 @@ function App() {
     }, [errors]);
 
     const handleCheckboxChange = useCallback((path: string, itemName: string, isChecked: boolean) => {
+        setIsFormDirty(true);
         setFormData(prev => {
             const newState = JSON.parse(JSON.stringify(prev));
             const currentArray: string[] = getNestedValue(newState, path) || [];
@@ -646,6 +671,7 @@ function App() {
                 setFormData(caseToEdit as FormDataState);
                 setEditingCaseId(caseId);
                 setErrors({});
+                setIsFormDirty(false);
                 setView('form');
             } else {
                 alert('No se encontró el caso a editar.');
@@ -676,6 +702,7 @@ function App() {
         setEditingCaseId(null);
         setFormData(initialState);
         setErrors({});
+        setIsFormDirty(false);
         setView('form');
     };
 
@@ -782,6 +809,7 @@ function App() {
                 return [...prev, newCase];
             });
 
+            setIsFormDirty(false);
             setFormData(initialState);
             setErrors({});
             setEditingCaseId(null);
@@ -857,13 +885,13 @@ function App() {
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
                     <div className="flex items-center">
                         {/* Logo / Title Area */}
-                        <div className="flex-shrink-0 flex items-center cursor-pointer" onClick={handleDashboard}>
+                        <div className="flex-shrink-0 flex items-center cursor-pointer" onClick={() => safeNavigate(handleDashboard)}>
                             <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Gestión de Casos</h1>
                         </div>
                         {/* Desktop Menu */}
                         <nav className="hidden md:ml-10 md:flex md:space-x-8">
                             {/* Ingreso */}
-                            <button onClick={() => setView('ingreso')} className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition-colors focus:outline-none ${view === 'ingreso' ? 'border-indigo-500 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+                            <button onClick={() => safeNavigate(() => setView('ingreso'))} className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition-colors focus:outline-none ${view === 'ingreso' ? 'border-indigo-500 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
                                 Ingreso
                             </button>
 
@@ -875,8 +903,8 @@ function App() {
                                 </button>
                                 <div className="absolute left-0 mt-0 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform z-50 top-full">
                                     <div className="py-1">
-                                        <button onClick={handleCreateCase} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Crear</button>
-                                        <button onClick={handleDashboard} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Tablero</button>
+                                        <button onClick={() => safeNavigate(handleCreateCase)} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Crear</button>
+                                        <button onClick={() => safeNavigate(handleDashboard)} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Tablero</button>
                                     </div>
                                 </div>
                             </div>
@@ -889,7 +917,7 @@ function App() {
                                 </button>
                                 <div className="absolute left-0 mt-0 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform z-50 top-full">
                                     <div className="py-1">
-                                        <button onClick={handleCreateCase} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Crear</button>
+                                        <button onClick={() => safeNavigate(handleCreateCase)} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Crear</button>
                                     </div>
                                 </div>
                             </div>
@@ -902,10 +930,10 @@ function App() {
                                 </button>
                                 <div className="absolute left-0 mt-0 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform z-50 top-full">
                                     <div className="py-1">
-                                        <button onClick={() => openSetupSection('comisaria')} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Comisaría</button>
-                                        <button onClick={() => openSetupSection('aseguradoras')} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Aseguradoras</button>
-                                        <button onClick={() => openSetupSection('contactos')} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Contactos</button>
-                                        <button onClick={() => openSetupSection('marcas')} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Marcas</button>
+                                        <button onClick={() => safeNavigate(() => openSetupSection('comisaria'))} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Comisaría</button>
+                                        <button onClick={() => safeNavigate(() => openSetupSection('aseguradoras'))} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Aseguradoras</button>
+                                        <button onClick={() => safeNavigate(() => openSetupSection('contactos'))} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Contactos</button>
+                                        <button onClick={() => safeNavigate(() => openSetupSection('marcas'))} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Marcas</button>
                                     </div>
                                 </div>
                             </div>
@@ -913,13 +941,13 @@ function App() {
                     </div>
                     {/* Simplified mobile menu access */}
                     <div className="md:hidden flex items-center space-x-4">
-                        <button onClick={() => setView('ingreso')} className="text-sm font-medium text-indigo-600">Ingreso</button>
-                        <button onClick={handleCreateCase} className="text-sm font-medium text-indigo-600">Crear Caso</button>
-                        <button onClick={handleDashboard} className="text-sm font-medium text-slate-600">Tablero</button>
+                        <button onClick={() => safeNavigate(() => setView('ingreso'))} className="text-sm font-medium text-indigo-600">Ingreso</button>
+                        <button onClick={() => safeNavigate(handleCreateCase)} className="text-sm font-medium text-indigo-600">Crear Caso</button>
+                        <button onClick={() => safeNavigate(handleDashboard)} className="text-sm font-medium text-slate-600">Tablero</button>
                         {/* Mobile quick access to setup sections */}
                         <div className="flex items-center space-x-2">
-                            <button onClick={() => openSetupSection('comisaria')} className="text-sm font-medium text-slate-600">Comisaría</button>
-                            <button onClick={() => openSetupSection('aseguradoras')} className="text-sm font-medium text-slate-600">Aseguradoras</button>
+                            <button onClick={() => safeNavigate(() => openSetupSection('comisaria'))} className="text-sm font-medium text-slate-600">Comisaría</button>
+                            <button onClick={() => safeNavigate(() => openSetupSection('aseguradoras'))} className="text-sm font-medium text-slate-600">Aseguradoras</button>
                         </div>
                     </div>
                 </div>
