@@ -53,8 +53,8 @@ const Ingreso: React.FC = () => {
     // Estado para el botón "Convenio" (habilitado/deshabilitado)
     const [isSaved, setIsSaved] = useState(false);
 
-    // Porcentaje de honorarios editable (default 30,0)
-    const [porcentajeConvenio, setPorcentajeConvenio] = useState<string>('30,0');
+    // Porcentaje de honorarios editable (default 30)
+    const [porcentajeConvenio, setPorcentajeConvenio] = useState<string>('30');
     const [currentConvenioIndex, setCurrentConvenioIndex] = useState<number>(0);
 
     // Validación
@@ -294,18 +294,17 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
 
     // Generar convenio para un damnificado específico: sustituye placeholders y abre modal
     const handleGenerarConvenio = (index: number) => {
-        const porcentajeDefault = '30,0';
+        const porcentajeDefault = '30';
         setCurrentConvenioIndex(index);
         setPorcentajeConvenio(porcentajeDefault);
         setConvenioText(generarConvenioText(index, porcentajeDefault));
         setShowConvenioModal(true);
     };
 
-    // Handler para cambio de porcentaje: valida formato (hasta 2 dígitos enteros, coma, 1 decimal)
+    // Handler para cambio de porcentaje: valida formato (solo dígitos enteros, hasta 2 dígitos)
     const handlePorcentajeChange = (value: string) => {
-        // Permitir solo dígitos y coma, formato: hasta 2 dígitos + opcionalmente coma + 1 dígito
-        const cleaned = value.replace(/[^0-9,]/g, '');
-        if (/^\d{0,2}(,\d{0,1})?$/.test(cleaned)) {
+        const cleaned = value.replace(/[^0-9]/g, '');
+        if (/^\d{0,2}$/.test(cleaned)) {
             setPorcentajeConvenio(cleaned);
             const porcentajeParaTexto = cleaned || '0';
             setConvenioText(generarConvenioText(currentConvenioIndex, porcentajeParaTexto));
@@ -414,8 +413,8 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                                 type="text"
                                 value={porcentajeConvenio}
                                 onChange={(e) => handlePorcentajeChange(e.target.value)}
-                                className="w-20 px-2 py-1 border border-slate-300 rounded-md text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                maxLength={4}
+                                className="w-14 px-1 py-1 border border-slate-300 rounded-md text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                maxLength={2}
                             />
                             <span className="text-sm font-medium text-slate-700">%</span>
                         </div>
