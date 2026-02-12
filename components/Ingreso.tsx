@@ -53,6 +53,10 @@ const Ingreso: React.FC = () => {
     // Estado para el botón "Convenio" (habilitado/deshabilitado)
     const [isSaved, setIsSaved] = useState(false);
 
+    // Porcentaje de honorarios editable (default 30,0)
+    const [porcentajeConvenio, setPorcentajeConvenio] = useState<string>('30,0');
+    const [currentConvenioIndex, setCurrentConvenioIndex] = useState<number>(0);
+
     // Validación
     const validateForm = (): boolean => {
         const newErrors: Record<string, string> = {};
@@ -171,15 +175,15 @@ const Ingreso: React.FC = () => {
     // Helper: convertir número del día (1-31) a palabras en español (minúsculas)
     const dayNumberToSpanish = (n: number): string => {
         const map: Record<number, string> = {
-            1: 'uno',2: 'dos',3: 'tres',4: 'cuatro',5: 'cinco',6: 'seis',7: 'siete',8: 'ocho',9: 'nueve',10: 'diez',
-            11: 'once',12: 'doce',13: 'trece',14: 'catorce',15: 'quince',16: 'dieciséis',17: 'diecisiete',18: 'dieciocho',19: 'diecinueve',20: 'veinte',
-            21: 'veintiuno',22: 'veintidós',23: 'veintitrés',24: 'veinticuatro',25: 'veinticinco',26: 'veintiséis',27: 'veintisiete',28: 'veintiocho',29: 'veintinueve',30: 'treinta',31: 'treinta y uno'
+            1: 'uno', 2: 'dos', 3: 'tres', 4: 'cuatro', 5: 'cinco', 6: 'seis', 7: 'siete', 8: 'ocho', 9: 'nueve', 10: 'diez',
+            11: 'once', 12: 'doce', 13: 'trece', 14: 'catorce', 15: 'quince', 16: 'dieciséis', 17: 'diecisiete', 18: 'dieciocho', 19: 'diecinueve', 20: 'veinte',
+            21: 'veintiuno', 22: 'veintidós', 23: 'veintitrés', 24: 'veinticuatro', 25: 'veinticinco', 26: 'veintiséis', 27: 'veintisiete', 28: 'veintiocho', 29: 'veintinueve', 30: 'treinta', 31: 'treinta y uno'
         };
         return map[n] || String(n);
     };
 
     const monthNumberToSpanish = (m: number): string => {
-        const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+        const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
         return months[(m - 1) >= 0 && (m - 1) < 12 ? (m - 1) : 0];
     };
 
@@ -234,22 +238,21 @@ const Ingreso: React.FC = () => {
         w.print();
     };
 
-    // Generar convenio para un damnificado específico: sustituye placeholders y abre modal
-    const handleGenerarConvenio = (index: number) => {
+    // Genera el texto del convenio para un damnificado y un porcentaje dado
+    const generarConvenioText = (index: number, porcentaje: string): string => {
         const d = formData.damnificados[index] || emptyDamnificado();
 
         const template = `\t\t\t\tCONVENIO DE HONORARIOS
 
-Entre MAXIMILIANO MARCELO GUIGGI, abogado, (Tº X Fº 29 CAM)y  NARDO JUAN FRANCO ( Tª xv Fª 319 CAM),  con estudio jurídico en la calle Alte. Brown 929 5º “A” de la localidad y partido de Morón, Pcia. de Buenos Aires, en adelante denominado “EL PROFESIONAL”, y por la otra parte _Apellido_ _Nombre_ dni _dni_ con domicilio en la calle _domicilio_ de la Localidad de _localidad_, provincia de _provincia_; en adelante denominado “el cliente” convienen en celebrar el presente convenio de honorarios profesionales, que se regirá por las siguientes cláusulas y condiciones:
+Entre MAXIMILIANO MARCELO GUIGGI, abogado, (Tº X Fº 29 CAM)y  NARDO JUAN FRANCO ( Tª xv Fª 319 CAM),  con estudio jurídico en la calle Alte. Brown 929 5º "A" de la localidad y partido de Morón, Pcia. de Buenos Aires, en adelante denominado "EL PROFESIONAL", y por la otra parte _Apellido_ _Nombre_ dni _dni_ con domicilio en la calle _domicilio_ de la Localidad de _localidad_, provincia de _provincia_; en adelante denominado "el cliente" convienen en celebrar el presente convenio de honorarios profesionales, que se regirá por las siguientes cláusulas y condiciones:
 PRIMERA: EL CLIENTE encomienda al PROFESIONAL la gestión judicial y/o extrajudicial del cobro de de los daños y perjuicios del accidente de tránsito de fecha _fechaAccidente_ en la calle _domicilioAccidente_ de la localidad de _localidadAccidente_, Provincia de _provinciaAccidente_, en donde resultara víctima el cliente
-SEGUNDA: El honorario del profesional será del 30% de la indemnización total percibida por el cliente. En caso de que el CLIENTE no perciba indemnización alguna producto del siniestro reclamado, nada tendrá que abonar al PROFESIONAL, en concepto de honorarios. Los gastos que abonare el PROFESIONAL, serán deducidos de la indemnización percibida por el cliente.
+SEGUNDA: El honorario del profesional será del _porcentaje_% de la indemnización total percibida por el cliente. En caso de que el CLIENTE no perciba indemnización alguna producto del siniestro reclamado, nada tendrá que abonar al PROFESIONAL, en concepto de honorarios. Los gastos que abonare el PROFESIONAL, serán deducidos de la indemnización percibida por el cliente.
 TERCERA: La revocación del poder, sustitución del patrocinio o rescisión unilateral por el cliente no anulará el presente convenio, con la excepción de que mediare culpa del profesional
 CUARTA: Para todos los efectos del presente las partes constituyen domicilios especiales en los consignados más arriba, lugares en los que se tendrá por válida y eficaz toda notificación que fuera menester y se someten a la competencia de los tribunales Ordinarios del Departamento Judicial de Morón renunciando a todo otro fuero y/o jurisdicción.
 En prueba de conformidad, firman el presente en dos ejemplares de idéntico tenor y a un solo efecto, en Morón a los _fechaHoy_.-
 `;
 
-        // Valores a reemplazar
-        // Generar la fecha en palabras: "a los veinticinco días del mes de noviembre de 2025"
+        // Generar la fecha en palabras
         const now = new Date();
         const day = now.getDate();
         const month = now.getMonth() + 1;
@@ -277,6 +280,7 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
             '_localidadAccidente_': formData.siniestro.localidad || '',
             '_provinciaAccidente_': siniestroProvinciaNombre,
             '_fechaHoy_': fechaHoyFormatted,
+            '_porcentaje_': porcentaje,
         };
 
         let finalText = template;
@@ -285,8 +289,27 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
             finalText = finalText.replace(re, values[key]);
         });
 
-        setConvenioText(finalText);
+        return finalText;
+    };
+
+    // Generar convenio para un damnificado específico: sustituye placeholders y abre modal
+    const handleGenerarConvenio = (index: number) => {
+        const porcentajeDefault = '30,0';
+        setCurrentConvenioIndex(index);
+        setPorcentajeConvenio(porcentajeDefault);
+        setConvenioText(generarConvenioText(index, porcentajeDefault));
         setShowConvenioModal(true);
+    };
+
+    // Handler para cambio de porcentaje: valida formato (hasta 2 dígitos enteros, coma, 1 decimal)
+    const handlePorcentajeChange = (value: string) => {
+        // Permitir solo dígitos y coma, formato: hasta 2 dígitos + opcionalmente coma + 1 dígito
+        const cleaned = value.replace(/[^0-9,]/g, '');
+        if (/^\d{0,2}(,\d{0,1})?$/.test(cleaned)) {
+            setPorcentajeConvenio(cleaned);
+            const porcentajeParaTexto = cleaned || '0';
+            setConvenioText(generarConvenioText(currentConvenioIndex, porcentajeParaTexto));
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -385,6 +408,17 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                     <div className="absolute inset-0 bg-black opacity-50" onClick={() => setShowConvenioModal(false)} />
                     <div className="relative bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-y-auto p-6 z-10">
                         <h3 className="text-lg font-bold text-slate-800 mb-4">Convenio Generado</h3>
+                        <div className="flex items-center mb-4 gap-2">
+                            <label className="text-sm font-medium text-slate-700 whitespace-nowrap">Porcentaje de honorarios:</label>
+                            <input
+                                type="text"
+                                value={porcentajeConvenio}
+                                onChange={(e) => handlePorcentajeChange(e.target.value)}
+                                className="w-20 px-2 py-1 border border-slate-300 rounded-md text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                maxLength={4}
+                            />
+                            <span className="text-sm font-medium text-slate-700">%</span>
+                        </div>
                         <div className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-md mb-4" style={{ whiteSpace: 'pre-wrap' }}>
                             {convenioText}
                         </div>
@@ -477,7 +511,7 @@ En prueba de conformidad, firman el presente en dos ejemplares de idéntico teno
                                     </button>
                                 )}
                             </div>
-                         </div>
+                        </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <InputField
