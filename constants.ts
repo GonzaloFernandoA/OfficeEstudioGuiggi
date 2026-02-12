@@ -1,5 +1,3 @@
-
-
 export const ESTADO_CIVIL_OPTIONS = ["Soltero/a", "Casado/a", "Viudo/a", "Divorciado/a", "Conviviente"];
 export const SI_NO_OPTIONS = ["Sí", "No", "No sabe"];
 export const MODO_TRASLADO_OPTIONS = ["Ambulancia", "Vehículo Particular", "Policía", "Por sus propios medios"];
@@ -28,7 +26,8 @@ export const ROL_PROTAGONISTAS_OPTIONS = [
     "Pasajera de colectivo",
     "Motociclista",
     "Peatón",
-    "Pasajero de Uber/Cabify/Otros"
+    "Pasajero de Uber/Cabify/Otros",
+    "Ciclista"
 ];
 
 export const MECANICA_ACCIDENTE_OPTIONS = [
