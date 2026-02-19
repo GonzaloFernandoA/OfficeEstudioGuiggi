@@ -8,6 +8,7 @@ import AudioRecorder from './components/AudioRecorder';
 import Dashboard from './components/Dashboard';
 import Contactos from './components/Contactos';
 import Ingreso from './components/Ingreso';
+import Actividades from './components/Actividades';
 import VersionBadge from './components/VersionBadge';
 import AddressRow from './components/AddressRow';
 import {
@@ -100,7 +101,7 @@ const initialState: FormDataState = {
     }
 };
 
-type View = 'form' | 'dashboard' | 'setup' | 'ingreso';
+type View = 'form' | 'dashboard' | 'setup' | 'ingreso' | 'actividades';
 
 // --- Validation Logic ---
 type DeepPartialWithString<T> = {
@@ -890,6 +891,11 @@ function App() {
                         </div>
                         {/* Desktop Menu */}
                         <nav className="hidden md:ml-10 md:flex md:space-x-8">
+                            {/* Actividades */}
+                            <button onClick={() => safeNavigate(() => setView('actividades'))} className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition-colors focus:outline-none ${view === 'actividades' ? 'border-indigo-500 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+                                Actividades
+                            </button>
+
                             {/* Ingreso */}
                             <button onClick={() => safeNavigate(() => setView('ingreso'))} className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition-colors focus:outline-none ${view === 'ingreso' ? 'border-indigo-500 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
                                 Ingreso
@@ -941,6 +947,7 @@ function App() {
                     </div>
                     {/* Simplified mobile menu access */}
                     <div className="md:hidden flex items-center space-x-4">
+                        <button onClick={() => safeNavigate(() => setView('actividades'))} className="text-sm font-medium text-indigo-600">Actividades</button>
                         <button onClick={() => safeNavigate(() => setView('ingreso'))} className="text-sm font-medium text-indigo-600">Ingreso</button>
                         <button onClick={() => safeNavigate(handleCreateCase)} className="text-sm font-medium text-indigo-600">Crear Caso</button>
                         <button onClick={() => safeNavigate(handleDashboard)} className="text-sm font-medium text-slate-600">Tablero</button>
@@ -960,7 +967,9 @@ function App() {
             </header>
 
             <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {view === 'ingreso' ? (
+                {view === 'actividades' ? (
+                    <Actividades />
+                ) : view === 'ingreso' ? (
                     <Ingreso />
                 ) : view === 'form' ? (
                     <form onSubmit={handleSubmit} noValidate>
