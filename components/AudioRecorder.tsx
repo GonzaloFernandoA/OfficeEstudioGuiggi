@@ -32,7 +32,13 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ name, value, onChange }) 
                 setTranscriptionError(null);
                 try {
                     const transcription = await transcribeAudio(audioBlob);
-                    const mockEvent = { target: { name, value: transcription } } as React.ChangeEvent<HTMLTextAreaElement>;
+
+                    // --- NUEVO: appendear al valor existente en vez de sobrescribir ---
+                    const currentText = value || '';
+                    const separator = currentText.trim().length > 0 ? '\n' : '';
+                    const appendedText = `${currentText}${separator}${transcription}`;
+
+                    const mockEvent = { target: { name, value: appendedText } } as React.ChangeEvent<HTMLTextAreaElement>;
                     onChange(mockEvent);
                 } catch (err) {
                     if (err instanceof Error) {
@@ -47,7 +53,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ name, value, onChange }) 
             handleTranscription();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [recordingStatus, audioBlob, name]);
+    }, [recordingStatus, audioBlob, name, value]);
 
     const handleRecordClick = () => {
         if (recordingStatus === 'recording') {

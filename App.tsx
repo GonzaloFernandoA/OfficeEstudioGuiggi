@@ -353,12 +353,7 @@ function useAutofillByDni(
 }
 
 
-const requiredFields = [
-    'cliente.nombreCompleto', 'cliente.dni', 'cliente.fechaNacimiento', 'cliente.domicilio',
-    'cliente.localidad', 'cliente.telefono', 'cliente.mail', 'cliente.rolAccidente',
-    'vehiculoCliente.vehiculo', 'vehiculoCliente.dominio',
-    'siniestro.fechaHecho', 'siniestro.horaHecho',
-];
+const requiredFields = [];
 
 const validateField = (name: string, value: any): string => {
     const isNotEmpty = (val: string) => val && val.trim() !== '';
@@ -981,12 +976,12 @@ function App() {
                         </div>
                         {/* Actor Principal */}
                         <Section title="Datos del Cliente (Actor Principal)" description="Información personal del cliente principal">
-                            <InputField label="D.N.I." name="cliente.dni" value={formData.cliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.dni')} required disabled={!!editingCaseId} title={editingCaseId ? "El DNI no puede ser modificado al editar un caso existente" : ""} />
+                            <InputField label="D.N.I." name="cliente.dni" value={formData.cliente.dni} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.dni')}  disabled={!!editingCaseId} title={editingCaseId ? "El DNI no puede ser modificado al editar un caso existente" : ""} />
                             <div className={`md:col-span-3 text-sm min-h-[1.25rem] ${clienteLookup.error ? 'text-red-600' : 'text-slate-500'}`}>
                                 {clienteLookup.loading ? 'Buscando datos por DNI...' : (clienteLookup.error ? clienteLookup.error : '\u00A0')}
                             </div>
-                            <InputField label="Nombre y Apellido" name="cliente.nombreCompleto" value={formData.cliente.nombreCompleto} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.nombreCompleto')} required />
-                            <InputField label="Fecha de Nacimiento" name="cliente.fechaNacimiento" type="date" value={formData.cliente.fechaNacimiento} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.fechaNacimiento')} required />
+                            <InputField label="Nombre y Apellido" name="cliente.nombreCompleto" value={formData.cliente.nombreCompleto} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.nombreCompleto')}  />
+                            <InputField label="Fecha de Nacimiento" name="cliente.fechaNacimiento" type="date" value={formData.cliente.fechaNacimiento} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.fechaNacimiento')}  />
                             <SelectField label="Estado Civil" name="cliente.estadoCivil" value={formData.cliente.estadoCivil} onChange={handleInputChange} onBlur={handleBlur} options={ESTADO_CIVIL_OPTIONS} error={getNestedValue(errors, 'cliente.estadoCivil')} />
                             <InputField label="Nombre del Padre" name="cliente.nombrePadre" value={formData.cliente.nombrePadre} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.nombrePadre')} />
                             <InputField label="Nombre de la Madre" name="cliente.nombreMadre" value={formData.cliente.nombreMadre} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.nombreMadre')} />
@@ -1008,7 +1003,7 @@ function App() {
                                 provinciaError={getNestedValue(errors, 'cliente.provincia')}
                                 className="md:col-span-3"
                             />
-                            <InputField label="Teléfono" name="cliente.telefono" type="tel" value={formData.cliente.telefono} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.telefono')} required />
+                            <InputField label="Teléfono" name="cliente.telefono" type="tel" value={formData.cliente.telefono} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.telefono')}  />
 
                             <InputField label="Ocupación" name="cliente.ocupacion" value={formData.cliente.ocupacion} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.ocupacion')} />
                             <InputField label="Sueldo Aproximado" name="cliente.sueldo" value={formData.cliente.sueldo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.sueldo')} />
@@ -1018,7 +1013,7 @@ function App() {
                             <InputField label="Cantidad de Hijos a Cargo" name="cliente.hijosACargo" type="number" value={formData.cliente.hijosACargo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.hijosACargo')} />
                             <InputField label="Composición Familiar" name="cliente.composicionFamiliar" value={formData.cliente.composicionFamiliar} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.composicionFamiliar')} as="textarea" rows={2} className="md:col-span-3" />
 
-                            <InputField label="Mail" name="cliente.mail" type="email" value={formData.cliente.mail} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.mail')} required />
+                            <InputField label="Mail" name="cliente.mail" type="email" value={formData.cliente.mail} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.mail')}  />
                             <InputField label="IG" name="cliente.ig" value={formData.cliente.ig} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.ig')} />
                             <InputField label="Le Recomienda" name="cliente.recomienda" value={formData.cliente.recomienda} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.recomienda')} />
 
@@ -1026,7 +1021,7 @@ function App() {
                             <SelectField label="¿Posee Registro de Conducir?" name="cliente.poseeRegistro" value={formData.cliente.poseeRegistro} onChange={handleInputChange} onBlur={handleBlur} options={SI_NO_OPTIONS} error={getNestedValue(errors, 'cliente.poseeRegistro')} />
                             <InputField label="Vigencia del Registro" name="cliente.vigenciaRegistro" type="date" value={formData.cliente.vigenciaRegistro} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.vigenciaRegistro')} />
                             <SelectField label="Categorías del Registro" name="cliente.categoriasRegistro" value={formData.cliente.categoriasRegistro} onChange={handleInputChange} options={CATEGORIAS_REGISTRO_OPTIONS} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.categoriasRegistro')} />
-                            <SelectField label="Rol en el Accidente" name="cliente.rolAccidente" value={formData.cliente.rolAccidente} onChange={handleInputChange} options={ROL_ACCIDENTE_OPTIONS} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.rolAccidente')} required />
+                            <SelectField label="Rol en el Accidente" name="cliente.rolAccidente" value={formData.cliente.rolAccidente} onChange={handleInputChange} options={ROL_ACCIDENTE_OPTIONS} onBlur={handleBlur} error={getNestedValue(errors, 'cliente.rolAccidente')}  />
                         </Section>
 
                         {/* Lesiones Cliente */}
@@ -1039,7 +1034,7 @@ function App() {
 
                             <CheckboxGrid title="Tipo de Lesión Reclamada" options={TIPO_LESION_OPTIONS} selectedOptions={formData.cliente.lesiones.tipoLesion} onCheckboxChange={(item, checked) => handleCheckboxChange('cliente.lesiones.tipoLesion', item, checked)} />
 
-                            <CheckboxGrid title="Zonas Afectadas" options={ZONAS_CORPORALES} selectedOptions={formData.cliente.lesiones.zonasAfectadas} onCheckboxChange={(item, checked) => handleCheckboxChange('cliente.lesiones.zonasAfectadas', item, checked)} required error={getNestedValue(errors, 'cliente.lesiones.zonasAfectadas')} />
+                            <CheckboxGrid title="Zonas Afectadas" options={ZONAS_CORPORALES} selectedOptions={formData.cliente.lesiones.zonasAfectadas} onCheckboxChange={(item, checked) => handleCheckboxChange('cliente.lesiones.zonasAfectadas', item, checked)}  error={getNestedValue(errors, 'cliente.lesiones.zonasAfectadas')} />
                             <InputField label="Otras Zonas" name="cliente.lesiones.otrasZonasAfectadas" value={formData.cliente.lesiones.otrasZonasAfectadas} onChange={handleInputChange} placeholder="Especifique otras zonas afectadas" className="md:col-span-2 lg:col-span-3" />
                             <CheckboxGrid title="Zonas de Radiografías" options={ZONAS_RADIOGRAFIAS} selectedOptions={formData.cliente.lesiones.zonasRadiografias} onCheckboxChange={(item, checked) => handleCheckboxChange('cliente.lesiones.zonasRadiografias', item, checked)} />
                             <InputField label="Otras Radiografías" name="cliente.lesiones.otrasZonasRadiografias" value={formData.cliente.lesiones.otrasZonasRadiografias} onChange={handleInputChange} placeholder="Especifique otras zonas con radiografías" className="md:col-span-2 lg:col-span-3" />
@@ -1047,8 +1042,8 @@ function App() {
 
                         {/* Vehículo Actor Principal */}
                         <Section title="Vehículo (Actor Principal)">
-                            <InputField label="Vehículo" name="vehiculoCliente.vehiculo" value={formData.vehiculoCliente.vehiculo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.vehiculo')} required />
-                            <InputField label="Dominio" name="vehiculoCliente.dominio" value={formData.vehiculoCliente.dominio} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.dominio')} required />
+                            <InputField label="Vehículo" name="vehiculoCliente.vehiculo" value={formData.vehiculoCliente.vehiculo} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.vehiculo')}  />
+                            <InputField label="Dominio" name="vehiculoCliente.dominio" value={formData.vehiculoCliente.dominio} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.dominio')}  />
                             <InputField label="Color del Auto" name="vehiculoCliente.color" value={formData.vehiculoCliente.color} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.color')} />
                             <InputField label="Compañía de Seguros" name="vehiculoCliente.companiaSeguros" value={formData.vehiculoCliente.companiaSeguros} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.companiaSeguros')} />
                             <InputField label="Número de Póliza" name="vehiculoCliente.numeroPoliza" value={formData.vehiculoCliente.numeroPoliza} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'vehiculoCliente.numeroPoliza')} />
@@ -1071,7 +1066,6 @@ function App() {
                                 onChange={handleInputChange}
                                 onBlur={handleBlur}
                                 error={getNestedValue(errors, 'titularCliente.dni')}
-                                required
                                 disabled={!!editingCaseId}
                                 title={editingCaseId ? "El DNI no puede ser modificado al editar un caso existente" : ""}
                             />
@@ -1161,7 +1155,7 @@ function App() {
 
                                 <CheckboxGrid title="Tipo de Lesión Reclamada" options={TIPO_LESION_OPTIONS} selectedOptions={formData.coActor1.lesiones.tipoLesion} onCheckboxChange={(item, checked) => handleCheckboxChange('coActor1.lesiones.tipoLesion', item, checked)} />
 
-                                <CheckboxGrid title="Zonas Afectadas" options={ZONAS_CORPORALES} selectedOptions={formData.coActor1.lesiones.zonasAfectadas} onCheckboxChange={(item, checked) => handleCheckboxChange('coActor1.lesiones.zonasAfectadas', item, checked)} required error={getNestedValue(errors, 'coActor1.lesiones.zonasAfectadas')} />
+                                <CheckboxGrid title="Zonas Afectadas" options={ZONAS_CORPORALES} selectedOptions={formData.coActor1.lesiones.zonasAfectadas} onCheckboxChange={(item, checked) => handleCheckboxChange('coActor1.lesiones.zonasAfectadas', item, checked)}  error={getNestedValue(errors, 'coActor1.lesiones.zonasAfectadas')} />
                                 <InputField label="Otras Zonas" name="coActor1.lesiones.otrasZonasAfectadas" value={formData.coActor1.lesiones.otrasZonasAfectadas} onChange={handleInputChange} placeholder="Especifique otras zonas afectadas" className="md:col-span-2 lg:col-span-3" />
                                 <CheckboxGrid title="Zonas de Radiografías" options={ZONAS_RADIOGRAFIAS} selectedOptions={formData.coActor1.lesiones.zonasRadiografias} onCheckboxChange={(item, checked) => handleCheckboxChange('coActor1.lesiones.zonasRadiografias', item, checked)} />
                                 <InputField label="Otras Radiografías" name="coActor1.lesiones.otrasZonasRadiografias" value={formData.coActor1.lesiones.otrasZonasRadiografias} onChange={handleInputChange} placeholder="Especifique otras zonas con radiografías" className="md:col-span-2 lg:col-span-3" />
@@ -1170,15 +1164,14 @@ function App() {
 
                         {/* Datos del Siniestro */}
                         <Section title="Datos del Siniestro">
-                            <InputField label="Fecha del Hecho" name="siniestro.fechaHecho" type="date" value={formData.siniestro.fechaHecho} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.fechaHecho')} required />
-                            <InputField label="Hora Aproximada" name="siniestro.horaHecho" type="time" value={formData.siniestro.horaHecho} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.horaHecho')} required />
+                            <InputField label="Fecha del Hecho" name="siniestro.fechaHecho" type="date" value={formData.siniestro.fechaHecho} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.fechaHecho')}  />
+                            <InputField label="Hora Aproximada" name="siniestro.horaHecho" type="time" value={formData.siniestro.horaHecho} onChange={handleInputChange} onBlur={handleBlur} error={getNestedValue(errors, 'siniestro.horaHecho')}  />
                             
                             <AddressRow
                                 calleName="siniestro.calles"
                                 calleValue={formData.siniestro.calles || ''}
                                 onCalleChange={handleInputChange}
                                 calleError={getNestedValue(errors, 'siniestro.calles')}
-
                                 localidadName="siniestro.localidad"
                                 localidadValue={formData.siniestro.localidad || ''}
                                 onLocalidadChange={handleInputChange}
