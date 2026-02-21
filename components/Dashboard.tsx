@@ -5,6 +5,7 @@ import { generateCaseSummary } from '../services/geminiService';
 import { generateConvenioDeHonorarios } from '../services/documentService';
 import { exportCasoToExcel } from '../services/exportService';
 import { deleteCaseByDni, getCaseById } from '../services/caseService';
+import { buildLesionesEnumeradasFijas } from '../services/hcUtils';
 
 interface DashboardProps {
   cases: FormDataState[];
@@ -226,89 +227,76 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
   };
 
   const buildHistoriaClinicaText = (data: FormDataState): string => {
-    const cliente = data.cliente || ({} as any);
     const siniestro = data.siniestro || ({} as any);
     const vehiculo = (data as any).vehiculoCliente || ({} as any);
     const demandados = (data as any).demandados || ({} as any);
 
+
     const up = (val: any) => String(val ?? '').toUpperCase();
 
-    const nombre = up(cliente.nombreCompleto);
-    const dni = up(cliente.dni);
-    const fechaNac = up(cliente.fechaNacimiento);
-    const calle = up(cliente.domicilio);
-    const localidad = up(cliente.localidad);
-    const provincia = up(cliente.provincia);
-    const telefono = up(cliente.telefono);
+    const buildSubjectBlock = (subject: any) => {
+      const nombre = up(subject?.nombreCompleto || `${subject?.nombre || ''} ${subject?.apellido || ''}`.trim());
+      const dni = up(subject?.dni);
+      const fechaNac = up(subject?.fechaNacimiento);
+      const calle = up(subject?.domicilio || subject?.calle);
+      const localidad = up(subject?.localidad);
+      const provincia = up(subject?.provincia);
+      const telefono = up(subject?.telefono);
 
-    const fechaHecho = up(siniestro.fechaHecho);
-    const horaHecho = up(siniestro.horaHecho);
-    const calleSiniestro = up(siniestro.calles || siniestro.calle);
-    const localidadSiniestro = up(siniestro.localidad);
-    const provinciaSiniestro = up(siniestro.provincia);
-    const narracionHechos = up(siniestro.narracionHechos);
+      const primeraAtencion = up(subject?.lesiones?.centroMedico1);
+      const zonasAfectadasApi: string[] = (subject?.lesiones?.zonasAfectadas || []).map((z: string) => up(z));
+      const zonasAfectadasLine = zonasAfectadasApi.join(', ');
 
-    const primeraAtencion = up(cliente.lesiones?.centroMedico1);
-    const zonasAfectadasApi: string[] = (cliente.lesiones?.zonasAfectadas || []).map((z: string) => up(z));
-    const zonasAfectadasLine = zonasAfectadasApi.join(', ');
+      const fechaHecho = up(siniestro.fechaHecho);
+      const horaHecho = up(siniestro.horaHecho);
+      const calleSiniestro = up((siniestro as any).calles || siniestro.calle);
+      const localidadSiniestro = up(siniestro.localidad);
+      const provinciaSiniestro = up(siniestro.provincia);
+      const narracionHechos = up(siniestro.narracionHechos);
 
-    const vehiculoDesc = up(vehiculo.vehiculo);
-    const mecanica = up(
-      siniestro.mecanicaAccidente === 'Otros'
-        ? (siniestro.otraMecanica || '')
-        : (siniestro.mecanicaAccidente || '')
-    );
-    const seguro = up(demandados.companiaSeguros?.nombre);
+      const vehiculoDesc = up(vehiculo.vehiculo);
+      const mecanica = up(
+        siniestro.mecanicaAccidente === 'Otros'
+          ? (siniestro.otraMecanica || '')
+          : (siniestro.mecanicaAccidente || '')
+      );
+      const seguro = up(demandados.companiaSeguros?.nombre);
 
-    const zonasFijas = [
-      'CERVICAL',
-      'HOMBRO IZQUIERDO',
-      'HOMBRO DERECHO',
-      'MUÑECA IZQUIERDA',
-      'MUÑECA DERECHA',
-      'RODILLA IZQUIERDA',
-      'RODILLA DERECHA',
-      'TOBILLO IZQUIERDO',
-      'TOBILLO DERECHO',
-      'LUMBAR',
-    ];
+      const lesionesEnumeradasFijas = buildLesionesEnumeradasFijas();
 
-    // Formatear lesiones reservando 20 caracteres para el texto y luego dos tabs antes de la casilla
-    const checkBox = '☐';
-
-    const formatLesion = (index: number, texto: string) => {
-      const numero = `${index + 1}. `; // "1. ", "2. ", etc.
-      const baseText = (numero + texto).padEnd(20, ' ');
-      // Dos tabs después del bloque de 20 caracteres para alinear la casilla
-      return `${baseText}\t\t${checkBox}`;
+      return [
+        'Consultorio Medico',
+        '',
+        `A Paciente ${nombre} ${dni ? `(DNI ${dni})` : ''}`.trim(),
+        `Fecha Nac ${fechaNac}`,
+        `Domicilio Calle ${calle} ${localidad} ${provincia}`.trim(),
+        `TEL: ${telefono}`,
+        '',
+        `Dia del Accidente ${fechaHecho} Hora ${horaHecho}`.trim(),
+        `Escenario del Accidente: ${calleSiniestro}`,
+        `Localidad y Partido: ${localidadSiniestro} ${provinciaSiniestro}`.trim(),
+        `Primera Atencion: ${primeraAtencion}`,
+        `Presento lesiones en: ${zonasAfectadasLine}`,
+        `Tipo de accidente: ${vehiculoDesc}`,
+        `Mecanica del Hecho sobre accidente : ${mecanica}`,
+        `Seguro ${seguro}`,
+        '',
+        `Narración de los hechos: ${narracionHechos}`,
+        '',
+        'Lesiones:',
+        lesionesEnumeradasFijas,
+      ].join('\n');
     };
 
-    const lesionesEnumeradasFijas = zonasFijas
-      .map((zona, idx) => formatLesion(idx, zona))
-      .join('\n');
+    const clienteBlock = buildSubjectBlock(data.cliente || ({} as any));
 
-    return [
-      'Consultorio Medico',
-      '',
-      `A Paciente ${nombre} ${dni ? `(DNI ${dni})` : ''}`.trim(),
-      `Fecha Nac ${fechaNac}`,
-      `Domicilio Calle ${calle} ${localidad} ${provincia}`.trim(),
-      `TEL: ${telefono}`,
-      '',
-      `Dia del Accidente ${fechaHecho} Hora ${horaHecho}`.trim(),
-      `Escenario del Accidente: ${calleSiniestro}`,
-      `Localidad y Partido: ${localidadSiniestro} ${provinciaSiniestro}`.trim(),
-      `Primera Atencion: ${primeraAtencion}`,
-      `Presento lesiones en: ${zonasAfectadasLine}`,
-      `Tipo de accidente: ${vehiculoDesc}`,
-      `Mecanica del Hecho sobre accidente : ${mecanica}`,
-      `Seguro ${seguro}`,
-      '',
-      `Narración de los hechos: ${narracionHechos}`,
-      '',
-      'Lesiones:',
-      lesionesEnumeradasFijas,
-    ].join('\n');
+    const hasCoActor1 = !!(data as any)?.coActor1?.dni;
+    if (!hasCoActor1) return clienteBlock;
+
+    const coActor1Block = buildSubjectBlock((data as any).coActor1);
+
+    // Usamos un marcador especial para insertar un salto de página SOLO al imprimir.
+    return [clienteBlock, '[[PAGE_BREAK]]', coActor1Block].join('\n');
   };
 
   const handleGenerateHC = async () => {
@@ -332,6 +320,13 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
 
   const handlePrintHC = () => {
     if (!hcText) return;
+
+    // Reemplazamos el marcador por un separador HTML con salto de página.
+    const htmlBody = hcText
+      .split('[[PAGE_BREAK]]')
+      .map((block) => `<pre>${block}</pre>`)
+      .join('<div class="page-break"></div>');
+
     const printableArea = document.createElement('iframe');
     printableArea.style.position = 'absolute';
     printableArea.style.width = '0';
@@ -354,11 +349,17 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
                 font-family: monospace;
                 font-size: 16px;
                 line-height: 1.5;
+                margin: 0;
+              }
+              .page-break {
+                break-after: page;
+                page-break-after: always;
+                height: 0;
               }
             </style>
           </head>
           <body>
-            <pre>${hcText}</pre>
+            ${htmlBody}
           </body>
         </html>
       `);
