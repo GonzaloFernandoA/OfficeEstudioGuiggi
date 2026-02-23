@@ -24,6 +24,9 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ name, value, onChange }) 
     const { recordingStatus, audioBlob, error, startRecording, stopRecording } = useAudioRecorder();
     const [isTranscribing, setIsTranscribing] = useState(false);
     const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
+    // Keep a ref to always have the latest value without adding it to the effect deps
+    const valueRef = React.useRef(value);
+    useEffect(() => { valueRef.current = value; }, [value]);
 
     useEffect(() => {
         if (recordingStatus === 'stopped' && audioBlob) {
@@ -32,13 +35,9 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ name, value, onChange }) 
                 setTranscriptionError(null);
                 try {
                     const transcription = await transcribeAudio(audioBlob);
-
-                    // --- NUEVO: appendear al valor existente en vez de sobrescribir ---
-                    const currentText = value || '';
-                    const separator = currentText.trim().length > 0 ? '\n' : '';
-                    const appendedText = `${currentText}${separator}${transcription}`;
-
-                    const mockEvent = { target: { name, value: appendedText } } as React.ChangeEvent<HTMLTextAreaElement>;
+                    const current = valueRef.current;
+                    const newValue = current ? `${current} ${transcription}` : transcription;
+                    const mockEvent = { target: { name, value: newValue } } as React.ChangeEvent<HTMLTextAreaElement>;
                     onChange(mockEvent);
                 } catch (err) {
                     if (err instanceof Error) {
@@ -53,7 +52,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ name, value, onChange }) 
             handleTranscription();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [recordingStatus, audioBlob, name, value]);
+    }, [recordingStatus, audioBlob]);
 
     const handleRecordClick = () => {
         if (recordingStatus === 'recording') {
