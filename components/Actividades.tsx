@@ -1,22 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import iconoEdit from '../icons/IconoEdit.png';
-
-interface Tarea {
-    dni: string;
-    nombre: string;
-    apellido: string;
-    flow_id: string;
-    code: string;
-    description: string;
-    status: string;
-    fecha_inicio: string;
-    fecha_fin: string;
-    is_completed: boolean;
-    comments: string;
-    updated_at: string;
-}
-
-const TAREAS_API_URL = 'https://ra8knaldjd.execute-api.us-east-2.amazonaws.com/prod/tareas?status=EN_PROGRESO';
+import { getTareas, updateTarea } from '../services/tareasService';
+import type { Tarea } from '../services/tareasService';
 
 const formatDate = (iso: string): string => {
     if (!iso) return '—';
@@ -42,40 +27,57 @@ const Actividades: React.FC = () => {
     const [selectedTarea, setSelectedTarea] = useState<Tarea | null>(null);
     const [editStatus, setEditStatus] = useState('');
     const [editComments, setEditComments] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchTareas = async () => {
+        const cargarTareas = async () => {
             setIsLoading(true);
             setError(null);
             try {
-                const response = await fetch(TAREAS_API_URL, {
-                    method: 'GET',
-                    headers: { 'Accept': 'application/json' },
-                });
-                if (!response.ok) {
-                    throw new Error(`Error ${response.status}: ${response.statusText}`);
-                }
-                const data: Tarea[] = await response.json();
-                setTareas(Array.isArray(data) ? data : []);
+                const data = await getTareas();
+                setTareas(data);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Error al cargar las tareas');
             } finally {
                 setIsLoading(false);
             }
         };
-        fetchTareas();
+        cargarTareas();
     }, []);
 
     const handleEdit = (tarea: Tarea) => {
         setSelectedTarea(tarea);
         setEditStatus(tarea.status);
         setEditComments(tarea.comments);
+        setSaveError(null);
     };
 
     const handleCloseModal = () => {
         setSelectedTarea(null);
         setEditStatus('');
         setEditComments('');
+        setSaveError(null);
+    };
+
+    const handleGuardar = async () => {
+        if (!selectedTarea) return;
+        setIsSaving(true);
+        setSaveError(null);
+        const result = await updateTarea(selectedTarea, { status: editStatus, comments: editComments });
+        setIsSaving(false);
+        if (!result.success) {
+            setSaveError(result.error ?? 'Error al guardar');
+            return;
+        }
+        setTareas(prev =>
+            prev.map(t =>
+                t.flow_id === selectedTarea.flow_id && t.code === selectedTarea.code
+                    ? { ...t, status: editStatus, comments: editComments }
+                    : t
+            )
+        );
+        handleCloseModal();
     };
 
     return (
@@ -211,6 +213,12 @@ const Actividades: React.FC = () => {
                                     className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 resize-none"
                                 />
                             </div>
+
+                            {saveError && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+                                    {saveError}
+                                </div>
+                            )}
                         </div>
 
                         {/* Footer */}
@@ -218,15 +226,18 @@ const Actividades: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={handleCloseModal}
-                                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 focus:outline-none"
+                                disabled={isSaving}
+                                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 focus:outline-none disabled:opacity-50"
                             >
                                 Cancelar
                             </button>
                             <button
                                 type="button"
-                                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none"
+                                onClick={handleGuardar}
+                                disabled={isSaving}
+                                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none disabled:opacity-50"
                             >
-                                Guardar
+                                {isSaving ? 'Guardando...' : 'Guardar'}
                             </button>
                         </div>
                     </div>
