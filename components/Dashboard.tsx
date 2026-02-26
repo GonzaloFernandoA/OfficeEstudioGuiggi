@@ -11,6 +11,7 @@ interface DashboardProps {
   cases: FormDataState[];
   onEdit: (caseId: number) => void;
   onDelete: (caseId: number) => void;
+  onActividades: (dni: string, nombreCompleto: string) => void;
 }
 
 const DetailItem: React.FC<{ label: string; value?: string | string[] | null }> = ({ label, value }) => {
@@ -34,7 +35,7 @@ const DetailSection: React.FC<{ title: string; children: React.ReactNode }> = ({
 );
 
 
-const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
+const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete, onActividades }) => {
   const [selectedCase, setSelectedCase] = useState<FormDataState | null>(null);
   const [caseToDelete, setCaseToDelete] = useState<FormDataState | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -434,6 +435,9 @@ const Dashboard: React.FC<DashboardProps> = ({ cases, onEdit, onDelete }) => {
                   <p className="text-sm text-slate-500">Fecha Hecho: {fechaHecho}</p>
                 </div>
                 <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-end space-x-4">
+                    <button onClick={() => onActividades(dni, nombreCompleto)} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+                      Actividades
+                    </button>
                     <button onClick={() => handleVerDetalles(c)} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
                      Ver Detalles
                    </button>
