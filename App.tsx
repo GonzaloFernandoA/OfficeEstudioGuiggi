@@ -9,6 +9,7 @@ import Dashboard from './components/Dashboard';
 import Contactos from './components/Contactos';
 import Ingreso from './components/Ingreso';
 import Actividades from './components/Actividades';
+import ActividadesCaso from './components/ActividadesCaso';
 import VersionBadge from './components/VersionBadge';
 import AddressRow from './components/AddressRow';
 import {
@@ -101,7 +102,7 @@ const initialState: FormDataState = {
     }
 };
 
-type View = 'form' | 'dashboard' | 'setup' | 'ingreso' | 'actividades';
+type View = 'form' | 'dashboard' | 'setup' | 'ingreso' | 'actividades' | 'actividades-caso';
 
 // --- Validation Logic ---
 type DeepPartialWithString<T> = {
@@ -550,6 +551,8 @@ function App() {
     const [errors, setErrors] = useState<ValidationErrors>({});
     const [view, setView] = useState<View>('dashboard');
     const [isFormDirty, setIsFormDirty] = useState(false);
+    const [actividadesCasoDni, setActividadesCasoDni] = useState('');
+    const [actividadesCasoNombre, setActividadesCasoNombre] = useState('');
 
     const safeNavigate = (action: () => void) => {
         if (view === 'form' && isFormDirty) {
@@ -712,6 +715,12 @@ function App() {
     // Setup handlers & state
     const [setupSection, setSetupSection] = useState<'comisaria' | 'aseguradoras' | 'contactos' | 'marcas' | null>(null);
 
+    const handleActividadesCaso = (dni: string, nombreCompleto: string) => {
+        setActividadesCasoDni(dni);
+        setActividadesCasoNombre(nombreCompleto);
+        setView('actividades-caso');
+    };
+
     const openSetupSection = (section: 'comisaria' | 'aseguradoras' | 'contactos' | 'marcas') => {
         setSetupSection(section);
         setView('setup');
@@ -851,26 +860,25 @@ function App() {
             try {
                 const respuesta = await fetch(CASOS_API_URL);
                 console.log('📡 Response status:', respuesta.status);
-                
+
                 if (!respuesta.ok) {
                     console.error('❌ Error HTTP:', respuesta.status);
                     throw new Error(`HTTP ${respuesta.status}`);
                 }
-                
+
                 const datos = await respuesta.json();
                 console.log('✅ Datos recibidos:', datos);
                 console.log('📦 Es array?', Array.isArray(datos));
                 console.log('📊 Cantidad:', Array.isArray(datos) ? datos.length : 'N/A');
-                
+
                 const casosApi = Array.isArray(datos) ? datos : [];
                 setCases(casosApi);
                 console.log('📌 Cases seteados:', casosApi);
             } catch (err: any) {
                 console.error('❌ Error completo:', err.message);
-                setCases([]);
             }
         };
-        
+
         cargarCasos();
     }, []);
 
@@ -1407,8 +1415,14 @@ function App() {
                             <button onClick={() => setView('dashboard')} className="px-4 py-2 rounded-md bg-slate-100 border border-slate-300">Volver al Tablero</button>
                         </div>
                     </div>
+                ) : view === 'actividades-caso' ? (
+                    <ActividadesCaso
+                        dni={actividadesCasoDni}
+                        nombreCompleto={actividadesCasoNombre}
+                        onVolver={() => setView('dashboard')}
+                    />
                 ) : (
-                    <Dashboard cases={cases} onEdit={handleEdit} onDelete={handleDelete} />
+                    <Dashboard cases={cases} onEdit={handleEdit} onDelete={handleDelete} onActividades={handleActividadesCaso} />
                 )}
             </main>
         </div>
