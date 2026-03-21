@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { getTareas } from '../services/tareasService';
 import type { Tarea } from '../services/tareasService';
+import CambiarEstadoModal from './ui/CambiarEstadoModal';
+import type { CambiarEstadoData } from './ui/CambiarEstadoModal';
 
 const formatDate = (iso: string): string => {
     if (!iso) return '—';
@@ -16,6 +18,8 @@ const Actividades: React.FC = () => {
     const [tareas, setTareas] = useState<Tarea[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [modalData, setModalData] = useState<CambiarEstadoData | null>(null);
+    const [selectedDni, setSelectedDni] = useState<string>('');
 
     useEffect(() => {
         const cargarTareas = async () => {
@@ -32,6 +36,26 @@ const Actividades: React.FC = () => {
         };
         cargarTareas();
     }, []);
+
+    const handleOpenDetalles = (tarea: Tarea) => {
+        setSelectedDni(tarea.dni);
+        setModalData({
+            taskId:           tarea.flow_id,
+            codigoDisplay:    tarea.codigo || tarea.code,
+            estadoActual:     tarea.status,
+            comentarioActual: tarea.comments ?? '',
+        });
+    };
+
+    const handleGuardar = async (nuevoEstado: string, comentario: string) => {
+        setTareas(prev =>
+            prev.map(t =>
+                t.dni === selectedDni && (t.codigo || t.code) === modalData?.codigoDisplay
+                    ? { ...t, status: nuevoEstado, comments: comentario }
+                    : t
+            )
+        );
+    };
 
     return (
         <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg">
@@ -97,7 +121,7 @@ const Actividades: React.FC = () => {
                                     </td>
                                     <td className="px-5 py-3 text-center">
                                         <button
-                                            onClick={() => console.log('Detalles tarea:', tarea)}
+                                            onClick={() => handleOpenDetalles(tarea)}
                                             className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 active:bg-indigo-800 transition-colors"
                                         >
                                             Detalles
@@ -109,6 +133,12 @@ const Actividades: React.FC = () => {
                     </table>
                 </div>
             )}
+
+            <CambiarEstadoModal
+                data={modalData}
+                onClose={() => setModalData(null)}
+                onGuardar={handleGuardar}
+            />
         </div>
     );
 };

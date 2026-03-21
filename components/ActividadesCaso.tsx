@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import iconoEdit from '../icons/IconoEdit.png';
+import React, { useState, useEffect } from 'react';
 import { getTareasFlow } from '../services/tareasService';
 import type { TareasFlowResponse, TareaFlow } from '../services/tareasService';
+import CambiarEstadoModal from './ui/CambiarEstadoModal';
+import type { CambiarEstadoData } from './ui/CambiarEstadoModal';
 
 interface ActividadesCasoProps {
     dni: string;
@@ -34,12 +35,9 @@ const ActividadesCaso: React.FC<ActividadesCasoProps> = ({ dni, nombreCompleto, 
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError]   = useState<string | null>(null);
 
-    // Estado para el modal de edición de estado
-    const [editingTarea, setEditingTarea] = useState<{ flujo: string; tarea: TareaFlow } | null>(null);
-    const [editEstado, setEditEstado]         = useState('');
-    const [editComentario, setEditComentario] = useState('');
-    const [isSaving, setIsSaving]             = useState(false);
-    const [saveError, setSaveError]           = useState<string | null>(null);
+    // Estado para el modal de edición
+    const [modalData, setModalData]               = useState<CambiarEstadoData | null>(null);
+    const [editingFlujo, setEditingFlujo]         = useState<string>('');
 
     useEffect(() => {
         const cargar = async () => {
@@ -64,38 +62,25 @@ const ActividadesCaso: React.FC<ActividadesCasoProps> = ({ dni, nombreCompleto, 
     const totalTareas   = flujosEntries.reduce((acc, [, tareas]) => acc + tareas.length, 0);
 
     const handleOpenEdit = (flujoNombre: string, tarea: TareaFlow) => {
-        setEditingTarea({ flujo: flujoNombre, tarea });
-        setEditEstado(tarea.estado);
-        setEditComentario(tarea.comentario ?? '');
-        setSaveError(null);
+        setEditingFlujo(flujoNombre);
+        setModalData({
+            taskId:           tarea.taskId,
+            codigoDisplay:    tarea.codigo,
+            estadoActual:     tarea.estado,
+            comentarioActual: tarea.comentario ?? '',
+        });
     };
 
-    const handleCloseModal = () => {
-        setEditingTarea(null);
-        setEditEstado('');
-        setEditComentario('');
-        setSaveError(null);
-    };
-
-    const handleGuardar = async () => {
-        if (!editingTarea) return;
-        setIsSaving(true);
-        setSaveError(null);
-        try {
-            // Actualizar localmente (el endpoint de update puede agregarse después)
-            setFlujos(prev => {
-                const updated = { ...prev };
-                updated[editingTarea.flujo] = (updated[editingTarea.flujo] as TareaFlow[]).map(t =>
-                    t.taskId === editingTarea.tarea.taskId ? { ...t, estado: editEstado, comentario: editComentario } : t
-                );
-                return updated;
-            });
-            handleCloseModal();
-        } catch (err) {
-            setSaveError(err instanceof Error ? err.message : 'Error al guardar');
-        } finally {
-            setIsSaving(false);
-        }
+    const handleGuardar = async (nuevoEstado: string, comentario: string) => {
+        setFlujos(prev => {
+            const updated = { ...prev };
+            updated[editingFlujo] = (updated[editingFlujo] as TareaFlow[]).map(t =>
+                t.taskId === modalData?.taskId
+                    ? { ...t, estado: nuevoEstado, comentario }
+                    : t
+            );
+            return updated;
+        });
     };
 
     return (
@@ -191,78 +176,12 @@ const ActividadesCaso: React.FC<ActividadesCasoProps> = ({ dni, nombreCompleto, 
                 </div>
             )}
 
-            {/* Modal de edición de estado */}
-            {editingTarea && (
-                <div
-                    className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex justify-center items-center p-4"
-                    onClick={handleCloseModal}
-                >
-                    <div
-                        className="bg-white rounded-lg shadow-2xl max-w-md w-full"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div className="border-b border-slate-200 px-6 py-4 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-slate-800">Cambiar Estado</h3>
-                            <button onClick={handleCloseModal} className="text-slate-400 hover:text-slate-600">✕</button>
-                        </div>
-
-                        <div className="px-6 py-4 space-y-4">
-                            <div className="text-sm text-slate-600">
-                                <span className="font-medium">Tarea:</span> {editingTarea.tarea.codigo.replace(/_/g, ' ')}
-                            </div>
-                            <div className="text-xs text-slate-400 font-mono">{editingTarea.tarea.taskId}</div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Nuevo Estado</label>
-                                <select
-                                    value={editEstado}
-                                    onChange={e => setEditEstado(e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                >
-                                    <option value="PENDIENTE">PENDIENTE</option>
-                                    <option value="EN_CURSO">EN CURSO</option>
-                                    <option value="COMPLETADO">COMPLETADO</option>
-                                    <option value="CANCELADO">CANCELADO</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Comentario</label>
-                                <textarea
-                                    value={editComentario}
-                                    onChange={e => setEditComentario(e.target.value)}
-                                    rows={4}
-                                    placeholder="Ingrese un comentario sobre esta tarea..."
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 resize-none"
-                                />
-                            </div>
-
-                            {saveError && (
-                                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
-                                    {saveError}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
-                            <button
-                                onClick={handleCloseModal}
-                                disabled={isSaving}
-                                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleGuardar}
-                                disabled={isSaving}
-                                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                            >
-                                {isSaving ? 'Guardando...' : 'Guardar'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Modal extraído a ui/ */}
+            <CambiarEstadoModal
+                data={modalData}
+                onClose={() => setModalData(null)}
+                onGuardar={handleGuardar}
+            />
         </div>
     );
 };

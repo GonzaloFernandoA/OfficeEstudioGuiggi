@@ -23,6 +23,7 @@ export interface TareaFlow {
     taskId: string;
     estado: string;
     fecha_inicio: string;
+    comentario?: string;
 }
 
 export type TareasFlowResponse = Record<string, TareaFlow[]>;
