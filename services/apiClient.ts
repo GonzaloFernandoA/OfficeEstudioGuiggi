@@ -133,6 +133,63 @@ export class ApiClient {
         }
     }
 
+    // Método genérico PATCH
+    async patch<T = any>(endpoint: string, payload: Record<string, any>): Promise<ApiResponse<T>> {
+        const url = `${this.baseUrl}${endpoint}`;
+
+        try {
+            console.log(`🔹 PATCH ${url}`, payload);
+
+            const response = await fetch(url, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const responseText = await response.text();
+            console.log(`📊 Status: ${response.status}`, response.statusText);
+
+            if (!response.ok) {
+                console.error('❌ Error Response (PATCH):', responseText);
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+
+            let data: T | undefined;
+            try {
+                data = responseText ? JSON.parse(responseText) : undefined;
+            } catch {
+                data = responseText as T;
+            }
+
+            console.log('✅ Success (PATCH):', data);
+
+            return {
+                status: response.status,
+                statusText: response.statusText,
+                data,
+            };
+        } catch (error) {
+            let errorMessage = 'Error desconocido';
+
+            if (error instanceof TypeError) {
+                errorMessage = 'No se puede conectar a la API (PATCH). Verifica que el servidor esté ejecutándose.';
+            } else if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+
+            console.error('🔴 Error (PATCH):', errorMessage);
+
+            return {
+                status: 500,
+                statusText: 'Error',
+                error: errorMessage,
+            };
+        }
+    }
+
     // Método genérico DELETE
     async delete<T = any>(endpoint: string): Promise<ApiResponse<T>> {
         const url = `${this.baseUrl}${endpoint}`;
