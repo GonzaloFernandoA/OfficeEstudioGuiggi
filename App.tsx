@@ -11,6 +11,7 @@ import Ingreso from './components/Ingreso';
 import Actividades from './components/Actividades';
 import ActividadesCaso from './components/ActividadesCaso';
 import VersionBadge from './components/VersionBadge';
+import DevRequestLog from './components/ui/DevRequestLog';
 import AddressRow from './components/AddressRow';
 import {
     ESTADO_CIVIL_OPTIONS,
@@ -1425,6 +1426,8 @@ function App() {
                     <Dashboard cases={cases} onEdit={handleEdit} onDelete={handleDelete} onActividades={handleActividadesCaso} />
                 )}
             </main>
+
+            {import.meta.env.DEV && <DevRequestLog />}
         </div>
     );
 }

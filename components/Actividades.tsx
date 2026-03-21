@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getTareas } from '../services/tareasService';
+import { getTareas, cambiarEstadoTarea } from '../services/tareasService';
 import type { Tarea } from '../services/tareasService';
 import CambiarEstadoModal from './ui/CambiarEstadoModal';
 import type { CambiarEstadoData } from './ui/CambiarEstadoModal';
@@ -40,7 +40,7 @@ const Actividades: React.FC = () => {
     const handleOpenDetalles = (tarea: Tarea) => {
         setSelectedDni(tarea.dni);
         setModalData({
-            taskId:           tarea.flow_id,
+            taskId:           tarea.taskId,
             codigoDisplay:    tarea.codigo || tarea.code,
             estadoActual:     tarea.status,
             comentarioActual: tarea.comments ?? '',
@@ -48,9 +48,17 @@ const Actividades: React.FC = () => {
     };
 
     const handleGuardar = async (nuevoEstado: string, comentario: string) => {
+        if (!modalData) return;
+
+        const result = await cambiarEstadoTarea(modalData.taskId, comentario, nuevoEstado);
+        if (!result.success) {
+            throw new Error(result.error ?? 'Error al actualizar la tarea');
+        }
+
+        // Actualizar estado local tras confirmar éxito en la API
         setTareas(prev =>
             prev.map(t =>
-                t.dni === selectedDni && (t.codigo || t.code) === modalData?.codigoDisplay
+                t.dni === selectedDni && (t.codigo || t.code) === modalData.codigoDisplay
                     ? { ...t, status: nuevoEstado, comments: comentario }
                     : t
             )

@@ -19,7 +19,7 @@ interface CambiarEstadoModalProps {
     onGuardar: (estado: string, comentario: string) => Promise<void>;
 }
 
-const ESTADOS = ['PENDIENTE', 'EN_CURSO', 'COMPLETADO', 'CANCELADO'] as const;
+const ESTADOS = ['PENDIENTE', 'EN_CURSO', 'COMPLETADA'] as const;
 
 const CambiarEstadoModal: React.FC<CambiarEstadoModalProps> = ({ data, onClose, onGuardar }) => {
     const [estado, setEstado]         = useState('');

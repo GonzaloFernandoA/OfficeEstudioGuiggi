@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getTareasFlow } from '../services/tareasService';
+import { getTareasFlow, cambiarEstadoTarea } from '../services/tareasService';
 import type { TareasFlowResponse, TareaFlow } from '../services/tareasService';
 import CambiarEstadoModal from './ui/CambiarEstadoModal';
 import type { CambiarEstadoData } from './ui/CambiarEstadoModal';
@@ -72,10 +72,18 @@ const ActividadesCaso: React.FC<ActividadesCasoProps> = ({ dni, nombreCompleto, 
     };
 
     const handleGuardar = async (nuevoEstado: string, comentario: string) => {
+        if (!modalData) return;
+
+        const result = await cambiarEstadoTarea(modalData.taskId, comentario, nuevoEstado);
+        if (!result.success) {
+            throw new Error(result.error ?? 'Error al actualizar la tarea');
+        }
+
+        // Actualizar estado local tras confirmar éxito en la API
         setFlujos(prev => {
             const updated = { ...prev };
             updated[editingFlujo] = (updated[editingFlujo] as TareaFlow[]).map(t =>
-                t.taskId === modalData?.taskId
+                t.taskId === modalData.taskId
                     ? { ...t, estado: nuevoEstado, comentario }
                     : t
             );

@@ -2,6 +2,7 @@
  * ApiClient - Cliente genérico para comunicación con API
  * Envía JSON directamente con POST a cualquier endpoint
  */
+import { requestLogger } from './requestLogger';
 
 export interface ApiResponse<T = any> {
     status: number;
@@ -20,15 +21,15 @@ export class ApiClient {
     // Método genérico GET
     async get<T = any>(endpoint: string): Promise<ApiResponse<T>> {
         const url = `${this.baseUrl}${endpoint}`;
+        const logId = requestLogger.begin('GET', url);
+        const t0 = Date.now();
 
         try {
             console.log(`🔹 GET ${url}`);
 
             const response = await fetch(url, {
                 method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                },
+                headers: { 'Accept': 'application/json' },
             });
 
             const responseText = await response.text();
@@ -36,6 +37,7 @@ export class ApiClient {
 
             if (!response.ok) {
                 console.error('❌ Error Response (GET):', responseText);
+                requestLogger.complete(logId, { status: response.status, statusText: response.statusText, durationMs: Date.now() - t0, error: responseText });
                 throw new Error(`Error ${response.status}: ${response.statusText}`);
             }
 
@@ -46,49 +48,37 @@ export class ApiClient {
                 data = responseText as T;
             }
 
+            requestLogger.complete(logId, { status: response.status, statusText: response.statusText, durationMs: Date.now() - t0 });
             console.log('✅ Success (GET):', data);
 
-            return {
-                status: response.status,
-                statusText: response.statusText,
-                data,
-            };
+            return { status: response.status, statusText: response.statusText, data };
         } catch (error) {
             let errorMessage = 'Error desconocido';
-
             if (error instanceof TypeError) {
                 errorMessage = 'No se puede conectar a la API (GET). Verifica que el servidor esté ejecutándose.';
             } else if (error instanceof Error) {
                 errorMessage = error.message;
             }
-
+            requestLogger.complete(logId, { durationMs: Date.now() - t0, error: errorMessage });
             console.error('🔴 Error (GET):', errorMessage);
-
-            return {
-                status: 500,
-                statusText: 'Error',
-                error: errorMessage,
-            };
+            return { status: 500, statusText: 'Error', error: errorMessage };
         }
     }
 
     /**
      * Envía un JSON con POST a un endpoint
-     * @param endpoint - Ruta del endpoint (ej: '/contactos')
-     * @param payload - Objeto JSON a enviar
-     * @returns Promesa con la respuesta
      */
     async post<T = any>(endpoint: string, payload: Record<string, any>): Promise<ApiResponse<T>> {
         const url = `${this.baseUrl}${endpoint}`;
+        const logId = requestLogger.begin('POST', url);
+        const t0 = Date.now();
 
         try {
             console.log(`🔹 POST ${url}`, payload);
 
             const response = await fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
 
@@ -97,6 +87,7 @@ export class ApiClient {
 
             if (!response.ok) {
                 console.error('❌ Error Response:', responseText);
+                requestLogger.complete(logId, { status: response.status, statusText: response.statusText, durationMs: Date.now() - t0, error: responseText });
                 throw new Error(`Error ${response.status}: ${response.statusText}`);
             }
 
@@ -107,45 +98,35 @@ export class ApiClient {
                 data = responseText as T;
             }
 
+            requestLogger.complete(logId, { status: response.status, statusText: response.statusText, durationMs: Date.now() - t0 });
             console.log('✅ Success:', data);
 
-            return {
-                status: response.status,
-                statusText: response.statusText,
-                data,
-            };
+            return { status: response.status, statusText: response.statusText, data };
         } catch (error) {
             let errorMessage = 'Error desconocido';
-
             if (error instanceof TypeError) {
                 errorMessage = 'No se puede conectar a la API. Verifica que el servidor esté ejecutándose.';
             } else if (error instanceof Error) {
                 errorMessage = error.message;
             }
-
+            requestLogger.complete(logId, { durationMs: Date.now() - t0, error: errorMessage });
             console.error('🔴 Error:', errorMessage);
-
-            return {
-                status: 500,
-                statusText: 'Error',
-                error: errorMessage,
-            };
+            return { status: 500, statusText: 'Error', error: errorMessage };
         }
     }
 
     // Método genérico PATCH
     async patch<T = any>(endpoint: string, payload: Record<string, any>): Promise<ApiResponse<T>> {
         const url = `${this.baseUrl}${endpoint}`;
+        const logId = requestLogger.begin('PATCH', url);
+        const t0 = Date.now();
 
         try {
             console.log(`🔹 PATCH ${url}`, payload);
 
             const response = await fetch(url, {
                 method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 body: JSON.stringify(payload),
             });
 
@@ -154,6 +135,7 @@ export class ApiClient {
 
             if (!response.ok) {
                 console.error('❌ Error Response (PATCH):', responseText);
+                requestLogger.complete(logId, { status: response.status, statusText: response.statusText, durationMs: Date.now() - t0, error: responseText });
                 throw new Error(`Error ${response.status}: ${response.statusText}`);
             }
 
@@ -164,44 +146,35 @@ export class ApiClient {
                 data = responseText as T;
             }
 
+            requestLogger.complete(logId, { status: response.status, statusText: response.statusText, durationMs: Date.now() - t0 });
             console.log('✅ Success (PATCH):', data);
 
-            return {
-                status: response.status,
-                statusText: response.statusText,
-                data,
-            };
+            return { status: response.status, statusText: response.statusText, data };
         } catch (error) {
             let errorMessage = 'Error desconocido';
-
             if (error instanceof TypeError) {
                 errorMessage = 'No se puede conectar a la API (PATCH). Verifica que el servidor esté ejecutándose.';
             } else if (error instanceof Error) {
                 errorMessage = error.message;
             }
-
+            requestLogger.complete(logId, { durationMs: Date.now() - t0, error: errorMessage });
             console.error('🔴 Error (PATCH):', errorMessage);
-
-            return {
-                status: 500,
-                statusText: 'Error',
-                error: errorMessage,
-            };
+            return { status: 500, statusText: 'Error', error: errorMessage };
         }
     }
 
     // Método genérico DELETE
     async delete<T = any>(endpoint: string): Promise<ApiResponse<T>> {
         const url = `${this.baseUrl}${endpoint}`;
+        const logId = requestLogger.begin('DELETE', url);
+        const t0 = Date.now();
 
         try {
             console.log(`🔹 DELETE ${url}`);
 
             const response = await fetch(url, {
                 method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                },
+                headers: { 'Accept': 'application/json' },
             });
 
             const responseText = await response.text();
@@ -209,6 +182,7 @@ export class ApiClient {
 
             if (!response.ok) {
                 console.error('❌ Error Response (DELETE):', responseText);
+                requestLogger.complete(logId, { status: response.status, statusText: response.statusText, durationMs: Date.now() - t0, error: responseText });
                 throw new Error(`Error ${response.status}: ${response.statusText}`);
             }
 
@@ -219,29 +193,20 @@ export class ApiClient {
                 data = responseText as T;
             }
 
+            requestLogger.complete(logId, { status: response.status, statusText: response.statusText, durationMs: Date.now() - t0 });
             console.log('✅ Success (DELETE):', data);
 
-            return {
-                status: response.status,
-                statusText: response.statusText,
-                data,
-            };
+            return { status: response.status, statusText: response.statusText, data };
         } catch (error) {
             let errorMessage = 'Error desconocido';
-
             if (error instanceof TypeError) {
                 errorMessage = 'No se puede conectar a la API (DELETE). Verifica que el servidor esté ejecutándose.';
             } else if (error instanceof Error) {
                 errorMessage = error.message;
             }
-
+            requestLogger.complete(logId, { durationMs: Date.now() - t0, error: errorMessage });
             console.error('🔴 Error (DELETE):', errorMessage);
-
-            return {
-                status: 500,
-                statusText: 'Error',
-                error: errorMessage,
-            };
+            return { status: 500, statusText: 'Error', error: errorMessage };
         }
     }
 }

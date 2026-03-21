@@ -4,6 +4,7 @@ export interface Tarea {
     dni: string;
     nombre: string;
     apellido: string;
+    taskId: string;    // id de la tarea, usado para PATCH /tareas/{taskId}
     flow_id: string;
     code: string;      // alias interno
     codigo: string;    // campo real devuelto por la API
@@ -98,6 +99,34 @@ export const getFlowsByDni = async (dni: string): Promise<FlowTarea[]> => {
     }
 
     return Array.isArray(response.data) ? response.data : [];
+};
+
+/**
+ * Actualiza el estado y comentario de una tarea.
+ * PATCH /tareas/{idTarea}  →  { comentarios, estado }
+ */
+export const cambiarEstadoTarea = async (
+    idTarea: string,
+    comentario: string,
+    estado: string,
+): Promise<TareaUpdateResult> => {
+    try {
+        const response = await apiClient.patch<any>(
+            `/tareas/${encodeURIComponent(idTarea)}`,
+            { comentarios: comentario, estado },
+        );
+
+        if (response.error) {
+            throw new Error(response.error);
+        }
+
+        return { success: true };
+    } catch (error) {
+        const errorMessage =
+            error instanceof Error ? error.message : 'Error desconocido al cambiar el estado';
+        console.error('Error en cambiarEstadoTarea:', errorMessage);
+        return { success: false, error: errorMessage };
+    }
 };
 
 export const updateTarea = async (
