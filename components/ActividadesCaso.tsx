@@ -39,22 +39,23 @@ const ActividadesCaso: React.FC<ActividadesCasoProps> = ({ dni, nombreCompleto, 
     const [modalData, setModalData]               = useState<CambiarEstadoData | null>(null);
     const [editingFlujo, setEditingFlujo]         = useState<string>('');
 
+    const cargar = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            console.log(`[ActividadesCaso] Cargando tareas para DNI: ${dni}`);
+            const data = await getTareasFlow(dni);
+            console.log('[ActividadesCaso] Datos recibidos:', data);
+            setFlujos(data);
+        } catch (err) {
+            console.error('[ActividadesCaso] Error:', err);
+            setError(err instanceof Error ? err.message : 'Error al cargar las actividades');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const cargar = async () => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                console.log(`[ActividadesCaso] Cargando tareas para DNI: ${dni}`);
-                const data = await getTareasFlow(dni);
-                console.log('[ActividadesCaso] Datos recibidos:', data);
-                setFlujos(data);
-            } catch (err) {
-                console.error('[ActividadesCaso] Error:', err);
-                setError(err instanceof Error ? err.message : 'Error al cargar las actividades');
-            } finally {
-                setIsLoading(false);
-            }
-        };
         if (dni) cargar();
     }, [dni]);
 
@@ -68,27 +69,20 @@ const ActividadesCaso: React.FC<ActividadesCasoProps> = ({ dni, nombreCompleto, 
             codigoDisplay:    tarea.codigo,
             estadoActual:     tarea.estado,
             comentarioActual: tarea.comentario ?? '',
+            duracion:         tarea.duracion ?? 0,
         });
     };
 
-    const handleGuardar = async (nuevoEstado: string, comentario: string) => {
+    const handleGuardar = async (nuevoEstado: string, comentario: string, duracion: number) => {
         if (!modalData) return;
 
-        const result = await cambiarEstadoTarea(modalData.taskId, comentario, nuevoEstado);
+        const result = await cambiarEstadoTarea(modalData.taskId, comentario, nuevoEstado, duracion);
         if (!result.success) {
             throw new Error(result.error ?? 'Error al actualizar la tarea');
         }
 
-        // Actualizar estado local tras confirmar éxito en la API
-        setFlujos(prev => {
-            const updated = { ...prev };
-            updated[editingFlujo] = (updated[editingFlujo] as TareaFlow[]).map(t =>
-                t.taskId === modalData.taskId
-                    ? { ...t, estado: nuevoEstado, comentario }
-                    : t
-            );
-            return updated;
-        });
+        // Refrescar el listado desde la API para reflejar el nuevo estado
+        await cargar();
     };
 
     return (
@@ -146,6 +140,7 @@ const ActividadesCaso: React.FC<ActividadesCasoProps> = ({ dni, nombreCompleto, 
                                         <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Código</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Estado</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Fecha Inicio</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Fecha Fin</th>
                                         <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Acción</th>
                                     </tr>
                                 </thead>
@@ -162,6 +157,7 @@ const ActividadesCaso: React.FC<ActividadesCasoProps> = ({ dni, nombreCompleto, 
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-sm text-slate-600">{formatDate(tarea.fecha_inicio)}</td>
+                                            <td className="px-4 py-3 text-sm text-slate-600">{formatDate(tarea.fecha_fin ?? '')}</td>
                                             <td className="px-4 py-3 text-center">
                                                 <button
                                                     onClick={() => handleOpenEdit(flujoNombre, tarea)}

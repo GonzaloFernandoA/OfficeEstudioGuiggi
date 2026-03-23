@@ -15,6 +15,7 @@ export interface Tarea {
     is_completed: boolean;
     comments: string;
     updated_at: string;
+    duracion?: number;
 }
 
 // Nueva estructura del backend: objeto con claves de flujo y arrays de tareas
@@ -24,7 +25,9 @@ export interface TareaFlow {
     taskId: string;
     estado: string;
     fecha_inicio: string;
+    fecha_fin?: string;
     comentario?: string;
+    duracion?: number;
 }
 
 export type TareasFlowResponse = Record<string, TareaFlow[]>;
@@ -102,18 +105,19 @@ export const getFlowsByDni = async (dni: string): Promise<FlowTarea[]> => {
 };
 
 /**
- * Actualiza el estado y comentario de una tarea.
- * PATCH /tareas/{idTarea}  →  { comentarios, estado }
+ * Actualiza el estado, comentario y duración de una tarea.
+ * PATCH /tareas/{idTarea}  →  { comentarios, estado, duracion }
  */
 export const cambiarEstadoTarea = async (
     idTarea: string,
     comentario: string,
     estado: string,
+    duracion?: number,
 ): Promise<TareaUpdateResult> => {
     try {
         const response = await apiClient.patch<any>(
             `/tareas/${encodeURIComponent(idTarea)}`,
-            { comentarios: comentario, estado },
+            { comentarios: comentario, estado, duracion },
         );
 
         if (response.error) {

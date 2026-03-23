@@ -9,6 +9,7 @@ export interface CambiarEstadoData {
     codigoDisplay: string;
     estadoActual: string;
     comentarioActual?: string;
+    duracion?: number;
 }
 
 interface CambiarEstadoModalProps {
@@ -16,14 +17,16 @@ interface CambiarEstadoModalProps {
     data: CambiarEstadoData | null;
     onClose: () => void;
     /** El padre decide qué hacer con los nuevos valores. Debe lanzar error si falla. */
-    onGuardar: (estado: string, comentario: string) => Promise<void>;
+    onGuardar: (estado: string, comentario: string, duracion: number) => Promise<void>;
 }
 
 const ESTADOS = ['PENDIENTE', 'EN_CURSO', 'COMPLETADA'] as const;
+const DURACION_OPTIONS = Array.from({ length: 31 }, (_, i) => i); // 0..30
 
 const CambiarEstadoModal: React.FC<CambiarEstadoModalProps> = ({ data, onClose, onGuardar }) => {
     const [estado, setEstado]         = useState('');
     const [comentario, setComentario] = useState('');
+    const [duracion, setDuracion]     = useState<number>(0);
     const [isSaving, setIsSaving]     = useState(false);
     const [saveError, setSaveError]   = useState<string | null>(null);
 
@@ -32,6 +35,7 @@ const CambiarEstadoModal: React.FC<CambiarEstadoModalProps> = ({ data, onClose, 
         if (data) {
             setEstado(data.estadoActual);
             setComentario(data.comentarioActual ?? '');
+            setDuracion(data.duracion ?? 0);
             setSaveError(null);
         }
     }, [data]);
@@ -42,7 +46,7 @@ const CambiarEstadoModal: React.FC<CambiarEstadoModalProps> = ({ data, onClose, 
         setIsSaving(true);
         setSaveError(null);
         try {
-            await onGuardar(estado, comentario);
+            await onGuardar(estado, comentario, duracion);
             onClose();
         } catch (err) {
             setSaveError(err instanceof Error ? err.message : 'Error al guardar');
@@ -62,7 +66,7 @@ const CambiarEstadoModal: React.FC<CambiarEstadoModalProps> = ({ data, onClose, 
             >
                 {/* Header */}
                 <div className="border-b border-slate-200 px-6 py-4 flex justify-between items-center">
-                    <h3 className="text-lg font-bold text-slate-800">Cambiar Estado</h3>
+                    <h3 className="text-lg font-bold text-slate-800">Detalle</h3>
                     <button
                         onClick={onClose}
                         className="text-slate-400 hover:text-slate-600 text-xl leading-none"
@@ -79,6 +83,13 @@ const CambiarEstadoModal: React.FC<CambiarEstadoModalProps> = ({ data, onClose, 
                     </div>
                     <div className="text-xs text-slate-400 font-mono">{data.taskId}</div>
 
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-slate-700">Estado actual:</span>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
+                            {data.estadoActual.replace(/_/g, ' ')}
+                        </span>
+                    </div>
+
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
                             Nuevo Estado
@@ -91,6 +102,23 @@ const CambiarEstadoModal: React.FC<CambiarEstadoModalProps> = ({ data, onClose, 
                             {ESTADOS.map(e => (
                                 <option key={e} value={e}>
                                     {e.replace(/_/g, ' ')}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                            Duración (días)
+                        </label>
+                        <select
+                            value={duracion}
+                            onChange={e => setDuracion(Number(e.target.value))}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            {DURACION_OPTIONS.map(n => (
+                                <option key={n} value={n}>
+                                    {n}
                                 </option>
                             ))}
                         </select>
