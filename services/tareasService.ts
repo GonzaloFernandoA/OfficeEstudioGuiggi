@@ -9,7 +9,8 @@ export interface Tarea {
     code: string;      // alias interno
     codigo: string;    // campo real devuelto por la API
     description: string;
-    status: string;
+    status?: string;   // nombre legacy; la API puede devolver 'estado' en su lugar
+    estado?: string;   // nombre real devuelto por la API
     fecha_inicio: string;
     fecha_fin: string;
     is_completed: boolean;

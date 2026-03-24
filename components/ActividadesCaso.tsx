@@ -66,8 +66,8 @@ const ActividadesCaso: React.FC<ActividadesCasoProps> = ({ dni, nombreCompleto, 
         setEditingFlujo(flujoNombre);
         setModalData({
             taskId:           tarea.taskId,
-            codigoDisplay:    tarea.codigo,
-            estadoActual:     tarea.estado,
+            codigoDisplay:    tarea.codigo ?? '',
+            estadoActual:     tarea.estado ?? '',
             comentarioActual: tarea.comentario ?? '',
             duracion:         tarea.duracion ?? 0,
         });

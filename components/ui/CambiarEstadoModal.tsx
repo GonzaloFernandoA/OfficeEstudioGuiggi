@@ -33,7 +33,7 @@ const CambiarEstadoModal: React.FC<CambiarEstadoModalProps> = ({ data, onClose, 
     // Sincronizar valores cada vez que se abre con una tarea nueva
     useEffect(() => {
         if (data) {
-            setEstado(data.estadoActual);
+            setEstado(data.estadoActual || ESTADOS[0]);
             setComentario(data.comentarioActual ?? '');
             setDuracion(data.duracion ?? 0);
             setSaveError(null);
@@ -79,14 +79,14 @@ const CambiarEstadoModal: React.FC<CambiarEstadoModalProps> = ({ data, onClose, 
                 <div className="px-6 py-4 space-y-4">
                     <div className="text-sm text-slate-600">
                         <span className="font-medium">Tarea:</span>{' '}
-                        {data.codigoDisplay.replace(/_/g, ' ')}
+                        {(data.codigoDisplay ?? '').replace(/_/g, ' ')}
                     </div>
                     <div className="text-xs text-slate-400 font-mono">{data.taskId}</div>
 
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-slate-700">Estado actual:</span>
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
-                            {data.estadoActual.replace(/_/g, ' ')}
+                            {(data.estadoActual ?? '').replace(/_/g, ' ')}
                         </span>
                     </div>
 
