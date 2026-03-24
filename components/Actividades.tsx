@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import iconoEdit from '../icons/IconoEdit.png';
-import { getTareas, updateTarea } from '../services/tareasService';
+import React, { useState, useEffect, useMemo } from 'react';
+import { getTareas, cambiarEstadoTarea } from '../services/tareasService';
 import type { Tarea } from '../services/tareasService';
+import CambiarEstadoModal from './ui/CambiarEstadoModal';
+import type { CambiarEstadoData } from './ui/CambiarEstadoModal';
+
+type SortKey = 'apellido' | 'nombre' | 'codigo' | 'fecha_inicio' | 'vencimiento';
+type SortDir = 'asc' | 'desc';
 
 const formatDate = (iso: string): string => {
     if (!iso) return '—';
@@ -13,76 +17,148 @@ const formatDate = (iso: string): string => {
     return `${dd}/${mm}/${yyyy}`;
 };
 
-const ReadOnlyField: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-    <div className="py-2 sm:grid sm:grid-cols-3 sm:gap-4 border-b border-slate-100 last:border-0">
-        <dt className="text-sm font-medium text-slate-500">{label}</dt>
-        <dd className="mt-1 text-sm text-slate-900 sm:mt-0 sm:col-span-2">{value || '—'}</dd>
-    </div>
-);
+/**
+ * Suma `days` días hábiles (lun–vie) a `start` y devuelve la fecha resultante.
+ */
+const addWorkingDays = (start: Date, days: number): Date => {
+    const result = new Date(start);
+    let added = 0;
+    while (added < days) {
+        result.setDate(result.getDate() + 1);
+        const dow = result.getDay(); // 0=Dom, 6=Sáb
+        if (dow !== 0 && dow !== 6) added++;
+    }
+    return result;
+};
+
+/**
+ * Devuelve true si fecha_inicio + duracion días hábiles < hoy.
+ */
+const esTareaVencida = (fecha_inicio: string, duracion?: number): boolean => {
+    if (!fecha_inicio || !duracion || duracion <= 0) return false;
+    const inicio = new Date(fecha_inicio);
+    if (isNaN(inicio.getTime())) return false;
+    const vencimiento = addWorkingDays(inicio, duracion);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    vencimiento.setHours(0, 0, 0, 0);
+    return vencimiento < hoy;
+};
+
+/**
+ * Devuelve true si fecha_inicio + duracion días hábiles == hoy.
+ */
+const esTareaVenceHoy = (fecha_inicio: string, duracion?: number): boolean => {
+    if (!fecha_inicio || !duracion || duracion <= 0) return false;
+    const inicio = new Date(fecha_inicio);
+    if (isNaN(inicio.getTime())) return false;
+    const vencimiento = addWorkingDays(inicio, duracion);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    vencimiento.setHours(0, 0, 0, 0);
+    return vencimiento.getTime() === hoy.getTime();
+};
+
+/**
+ * Devuelve el timestamp (ms) de fecha_inicio + duracion días hábiles.
+ * Si no hay fecha válida devuelve MAX para que quede al final.
+ */
+const calcVencimientoTs = (fecha_inicio: string, duracion?: number): number => {
+    if (!fecha_inicio) return Number.MAX_SAFE_INTEGER;
+    const inicio = new Date(fecha_inicio);
+    if (isNaN(inicio.getTime())) return Number.MAX_SAFE_INTEGER;
+    const dias = duracion && duracion > 0 ? duracion : 0;
+    const venc = dias > 0 ? addWorkingDays(inicio, dias) : inicio;
+    venc.setHours(0, 0, 0, 0);
+    return venc.getTime();
+};
+
+// Icono de ordenamiento
+const SortIcon: React.FC<{ col: SortKey; sortKey: SortKey; sortDir: SortDir }> = ({ col, sortKey, sortDir }) => {
+    if (col !== sortKey) return <span className="ml-1 text-slate-300">↕</span>;
+    return <span className="ml-1 text-indigo-500">{sortDir === 'asc' ? '↑' : '↓'}</span>;
+};
 
 const Actividades: React.FC = () => {
-    const [tareas, setTareas] = useState<Tarea[]>([]);
+    const [tareas, setTareas]       = useState<Tarea[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [selectedTarea, setSelectedTarea] = useState<Tarea | null>(null);
-    const [editStatus, setEditStatus] = useState('');
-    const [editComments, setEditComments] = useState('');
-    const [isSaving, setIsSaving] = useState(false);
-    const [saveError, setSaveError] = useState<string | null>(null);
+    const [error, setError]         = useState<string | null>(null);
+    const [modalData, setModalData] = useState<CambiarEstadoData | null>(null);
+    const [selectedDni, setSelectedDni] = useState<string>('');
+    const [sortKey, setSortKey]     = useState<SortKey>('vencimiento');
+    const [sortDir, setSortDir]     = useState<SortDir>('asc');
+
+    const cargarTareas = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const data = await getTareas('EN_CURSO');
+            setTareas(data);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Error al cargar las tareas');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const cargarTareas = async () => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                const data = await getTareas();
-                setTareas(data);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : 'Error al cargar las tareas');
-            } finally {
-                setIsLoading(false);
-            }
-        };
         cargarTareas();
     }, []);
 
-    const handleEdit = (tarea: Tarea) => {
-        setSelectedTarea(tarea);
-        setEditStatus(tarea.status);
-        setEditComments(tarea.comments);
-        setSaveError(null);
-    };
-
-    const handleCloseModal = () => {
-        setSelectedTarea(null);
-        setEditStatus('');
-        setEditComments('');
-        setSaveError(null);
-    };
-
-    const handleGuardar = async () => {
-        if (!selectedTarea) return;
-        setIsSaving(true);
-        setSaveError(null);
-        const result = await updateTarea(selectedTarea, { status: editStatus, comments: editComments });
-        setIsSaving(false);
-        if (!result.success) {
-            setSaveError(result.error ?? 'Error al guardar');
-            return;
+    const handleSort = (col: SortKey) => {
+        if (col === sortKey) {
+            setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortKey(col);
+            setSortDir('asc');
         }
-        setTareas(prev =>
-            prev.map(t =>
-                t.flow_id === selectedTarea.flow_id && t.code === selectedTarea.code
-                    ? { ...t, status: editStatus, comments: editComments }
-                    : t
-            )
-        );
-        handleCloseModal();
     };
+
+    const tareasSorted = useMemo(() => {
+        return [...tareas].sort((a, b) => {
+            let cmp = 0;
+            if (sortKey === 'vencimiento') {
+                cmp = calcVencimientoTs(a.fecha_inicio, a.duracion) - calcVencimientoTs(b.fecha_inicio, b.duracion);
+            } else if (sortKey === 'fecha_inicio') {
+                const va = a.fecha_inicio ?? '';
+                const vb = b.fecha_inicio ?? '';
+                cmp = va < vb ? -1 : va > vb ? 1 : 0;
+            } else {
+                const va = (a[sortKey] ?? '').toLowerCase();
+                const vb = (b[sortKey] ?? '').toLowerCase();
+                cmp = va < vb ? -1 : va > vb ? 1 : 0;
+            }
+            return sortDir === 'asc' ? cmp : -cmp;
+        });
+    }, [tareas, sortKey, sortDir]);
+
+    const handleOpenDetalles = (tarea: Tarea) => {
+        setSelectedDni(tarea.dni);
+        setModalData({
+            taskId:           tarea.taskId,
+            codigoDisplay:    tarea.codigo || tarea.code || '',
+            estadoActual:     tarea.estado ?? tarea.status ?? '',
+            comentarioActual: tarea.comments ?? '',
+            duracion:         tarea.duracion ?? 0,
+        });
+    };
+
+    const handleGuardar = async (nuevoEstado: string, comentario: string, duracion: number) => {
+        if (!modalData) return;
+        const result = await cambiarEstadoTarea(modalData.taskId, comentario, nuevoEstado, duracion);
+        if (!result.success) {
+            throw new Error(result.error ?? 'Error al actualizar la tarea');
+        }
+        // Refrescar el listado desde la API para reflejar el nuevo estado
+        await cargarTareas();
+    };
+
+    // Clases del th clicable
+    const thClass = 'px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none hover:bg-slate-100 transition-colors';
 
     return (
         <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg">
-            <h2 className="text-2xl font-bold text-slate-800 mb-4">Tablero de Actividades</h2>
+            <h2 className="text-2xl font-bold text-slate-800 mb-6">Actividades En Curso</h2>
 
             {isLoading && (
                 <div className="flex justify-center items-center py-12">
@@ -96,153 +172,78 @@ const Actividades: React.FC = () => {
                 </div>
             )}
 
-            {!isLoading && !error && (
-                <div className="overflow-hidden rounded-lg border border-slate-200">
+            {!isLoading && !error && tareas.length === 0 && (
+                <div className="text-center py-12 text-slate-500">
+                    No hay actividades en curso.
+                </div>
+            )}
+
+            {!isLoading && !error && tareas.length > 0 && (
+                <div className="rounded-lg border border-slate-200 overflow-hidden">
                     <table className="min-w-full divide-y divide-slate-200">
                         <thead className="bg-slate-50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                    Nombre
+                                <th className={thClass} onClick={() => handleSort('apellido')}>
+                                    Apellido <SortIcon col="apellido" sortKey={sortKey} sortDir={sortDir} />
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                    Flow ID
+                                <th className={thClass} onClick={() => handleSort('nombre')}>
+                                    Nombre <SortIcon col="nombre" sortKey={sortKey} sortDir={sortDir} />
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                    Fecha Fin
+                                <th className={thClass} onClick={() => handleSort('codigo')}>
+                                    Código <SortIcon col="codigo" sortKey={sortKey} sortDir={sortDir} />
                                 </th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                    Editar
+                                <th className={thClass} onClick={() => handleSort('vencimiento')}>
+                                    Fecha Inicio / Venc. <SortIcon col="vencimiento" sortKey={sortKey} sortDir={sortDir} />
+                                </th>
+                                <th className="px-5 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                    Detalles
                                 </th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-slate-200">
-                            {tareas.length === 0 ? (
-                                <tr>
-                                    <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
-                                        No hay tareas en progreso
+                        <tbody className="bg-white divide-y divide-slate-100">
+                            {tareasSorted.map((tarea, idx) => (
+                                <tr
+                                    key={`${tarea.dni}-${tarea.codigo}-${idx}`}
+                                    className="hover:bg-slate-50 transition-colors"
+                                >
+                                    <td className="px-5 py-3 text-sm font-medium text-slate-800">
+                                        {tarea.apellido || '—'}
+                                    </td>
+                                    <td className="px-5 py-3 text-sm text-slate-700">
+                                        {tarea.nombre || '—'}
+                                    </td>
+                                    <td className="px-5 py-3 text-sm font-mono text-indigo-700">
+                                        {tarea.codigo || '—'}
+                                    </td>
+                                    <td className="px-5 py-3 text-sm text-slate-600">
+                                        {formatDate(tarea.fecha_inicio)}
+                                    </td>
+                                    <td className="px-5 py-3 text-center">
+                                        <button
+                                            onClick={() => handleOpenDetalles(tarea)}
+                                            className={`px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-colors ${
+                                                esTareaVencida(tarea.fecha_inicio, tarea.duracion)
+                                                    ? 'bg-red-600 hover:bg-red-700 active:bg-red-800'
+                                                    : esTareaVenceHoy(tarea.fecha_inicio, tarea.duracion)
+                                                        ? 'bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700'
+                                                        : 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800'
+                                            }`}
+                                        >
+                                            Detalles
+                                        </button>
                                     </td>
                                 </tr>
-                            ) : (
-                                tareas.map((tarea, index) => (
-                                    <tr key={index} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                                            {tarea.apellido} {tarea.nombre}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
-                                            {tarea.flow_id}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
-                                            {tarea.fecha_fin}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                                            <button
-                                                onClick={() => handleEdit(tarea)}
-                                                title="Editar"
-                                                className="inline-flex items-center justify-center hover:opacity-70 transition-opacity"
-                                            >
-                                                <img src={iconoEdit} alt="Editar" className="h-5 w-5" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
+                            ))}
                         </tbody>
                     </table>
                 </div>
             )}
 
-            {/* Modal de edición */}
-            {selectedTarea && (
-                <div
-                    className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex justify-center items-center p-4"
-                    onClick={handleCloseModal}
-                >
-                    <div
-                        className="bg-white rounded-lg shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        {/* Header */}
-                        <div className="flex-shrink-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-slate-800">Editar Actividad</h3>
-                            <button onClick={handleCloseModal} className="text-slate-400 hover:text-slate-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        {/* Body */}
-                        <div className="flex-1 overflow-y-auto px-6 py-4">
-                            {/* Campos de solo lectura */}
-                            <h4 className="text-md font-semibold text-indigo-700 mb-2 border-b border-slate-200 pb-1">Datos Actividad</h4>
-                            <dl className="mb-6">
-                                <ReadOnlyField label="DNI" value={selectedTarea.dni} />
-                                <ReadOnlyField label="Apellido y Nombre" value={`${selectedTarea.apellido} ${selectedTarea.nombre}`} />
-                                <ReadOnlyField label="Flow ID" value={selectedTarea.flow_id} />
-                                <ReadOnlyField label="Código" value={selectedTarea.code} />
-                                <ReadOnlyField label="Descripción" value={selectedTarea.description} />
-                                <ReadOnlyField label="Fecha Inicio" value={selectedTarea.fecha_inicio} />
-                                <ReadOnlyField label="Fecha Fin" value={selectedTarea.fecha_fin} />
-                                <ReadOnlyField label="Completado" value={selectedTarea.is_completed ? 'Sí' : 'No'} />
-                                <ReadOnlyField label="Última actualización" value={formatDate(selectedTarea.updated_at)} />
-                            </dl>
-
-                            {/* Campos editables */}
-                            <h4 className="text-md font-semibold text-indigo-700 mb-2 border-b border-slate-200 pb-1">Editar</h4>
-
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Status
-                                </label>
-                                <input
-                                    type="text"
-                                    value={editStatus}
-                                    onChange={e => setEditStatus(e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                />
-                            </div>
-
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Comentarios
-                                </label>
-                                <textarea
-                                    value={editComments}
-                                    onChange={e => setEditComments(e.target.value)}
-                                    rows={4}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 resize-none"
-                                />
-                            </div>
-
-                            {saveError && (
-                                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
-                                    {saveError}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Footer */}
-                        <div className="flex-shrink-0 bg-white border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
-                            <button
-                                type="button"
-                                onClick={handleCloseModal}
-                                disabled={isSaving}
-                                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 focus:outline-none disabled:opacity-50"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleGuardar}
-                                disabled={isSaving}
-                                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none disabled:opacity-50"
-                            >
-                                {isSaving ? 'Guardando...' : 'Guardar'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <CambiarEstadoModal
+                data={modalData}
+                onClose={() => setModalData(null)}
+                onGuardar={handleGuardar}
+            />
         </div>
     );
 };
