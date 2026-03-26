@@ -13,6 +13,7 @@ export interface RequestLogEntry {
     id: number;
     method: HttpMethod;
     url: string;
+    body?: unknown;         // payload enviado (solo POST / PATCH)
     status?: number;
     statusText?: string;
     durationMs?: number;
@@ -34,11 +35,11 @@ export const requestLogger = {
      * Registra el inicio de una llamada. Devuelve el id asignado.
      * El id se usa luego en `update` para completar status/duración.
      */
-    begin(method: HttpMethod, url: string): number {
+    begin(method: HttpMethod, url: string, body?: unknown): number {
         if (!IS_DEV) return -1;
         const id = ++counter;
         entries = [
-            { id, method, url, timestamp: new Date().toISOString() },
+            { id, method, url, body, timestamp: new Date().toISOString() },
             ...entries,
         ].slice(0, MAX_ENTRIES);
         notify();

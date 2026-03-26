@@ -14,7 +14,7 @@ export interface Tarea {
     fecha_inicio: string;
     fecha_fin: string;
     is_completed: boolean;
-    comments: string;
+    comentario?: string;
     updated_at: string;
     duracion?: number;
 }
@@ -35,7 +35,7 @@ export type TareasFlowResponse = Record<string, TareaFlow[]>;
 
 export interface TareaUpdatePayload {
     status: string;
-    comments: string;
+    comentario: string;
 }
 
 export interface TareaUpdateResult {
@@ -85,7 +85,7 @@ export interface FlowTarea {
     fecha_inicio: string;
     fecha_fin: string;
     is_completed: boolean;
-    comments: string;
+    comentario?: string;
     updated_at: string;
     step: number;
 }
@@ -107,7 +107,7 @@ export const getFlowsByDni = async (dni: string): Promise<FlowTarea[]> => {
 
 /**
  * Actualiza el estado, comentario y duración de una tarea.
- * PATCH /tareas/{idTarea}  →  { comentarios, estado, duracion }
+ * PATCH /tareas/{idTarea}  →  { comentario, estado, duracion }
  */
 export const cambiarEstadoTarea = async (
     idTarea: string,
@@ -118,7 +118,7 @@ export const cambiarEstadoTarea = async (
     try {
         const response = await apiClient.patch<any>(
             `/tareas/${encodeURIComponent(idTarea)}`,
-            { comentarios: comentario, estado, duracion },
+            { comentario, estado, duracion },
         );
 
         if (response.error) {
