@@ -138,7 +138,7 @@ const Actividades: React.FC = () => {
             taskId:           tarea.taskId,
             codigoDisplay:    tarea.codigo || tarea.code || '',
             estadoActual:     tarea.estado ?? tarea.status ?? '',
-            comentarioActual: tarea.comments ?? '',
+            comentarioActual: tarea.comentario ?? '',
             duracion:         tarea.duracion ?? 0,
         });
     };

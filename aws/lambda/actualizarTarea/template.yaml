@@ -1,0 +1,44 @@
+# Esta plantilla de AWS SAM se ha generado a partir de la configuración de su
+# función. Si su función tiene uno o más desencadenadores, tenga en cuenta que
+# los recursos de AWS asociados a estos desencadenadores no están completamente
+# especificados en esta plantilla e incluyen valores de marcadores de posición.
+# Abra esta plantilla en AWS Infrastructure Composer o en su IDE favorito y
+# modifíquela para especificar una aplicación sin servidor con otros recursos de
+# AWS.
+#
+# - SAM genera automáticamente permisos para interactuar con los recursos
+#   definidos en esta plantilla. Si su función necesita permisos adicionales,
+#   agregue Políticas al recurso AWS::Serverless::Function.
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >-
+  Una plantilla de modelo de aplicación sin servidor (SAM) de AWS que describe
+  su función.
+Resources:
+  actualizarTarea:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: actualizarTarea
+      Architectures:
+        - x86_64
+      CodeUri: ./src
+      Description: forzar reload de permisos
+      EphemeralStorage:
+        Size: 512
+      Handler: index.handler
+      Layers:
+        - arn:aws:lambda:us-east-2:034362075244:layer:CapaDatosUniversal:8
+      LoggingConfig:
+        LogFormat: Text
+        LogGroup: /aws/lambda/actualizarTarea
+      MemorySize: 128
+      PackageType: Zip
+      RecursiveLoop: Terminate
+      Runtime: nodejs20.x
+      RuntimeManagementConfig:
+        UpdateRuntimeOn: Auto
+      SnapStart:
+        ApplyOn: None
+      Tags: {}
+      Timeout: 3
+      Tracing: PassThrough
