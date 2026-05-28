@@ -44,7 +44,7 @@ export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
     return response.text;
   } catch (error) {
     console.error("Error transcribing audio with Gemini:", error);
-    throw new Error("La transcripción falló. Inténtelo de nuevo.");
+    throw new Error("La transcripción falló. Inténtelo de nuevo." + process.env.API_KEY + error );
   }
 };
 
@@ -69,6 +69,7 @@ export const generateCaseSummary = async (caseData: FormDataState): Promise<stri
     throw new Error("API key for Gemini is not set.");
   }
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  console.log("API_KEY " + process.env.API_KEY)
 
   // Construct a detailed prompt from the case data
   const prompt = `
