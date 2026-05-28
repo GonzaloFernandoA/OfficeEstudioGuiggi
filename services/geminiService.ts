@@ -44,7 +44,7 @@ export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
     return response.text;
   } catch (error) {
     console.error("Error transcribing audio with Gemini:", error);
-    throw new Error("La transcripción falló. Inténtelo de nuevo.");
+    throw new Error("La transcripción falló. Inténtelo de nuevo." + error );
   }
 };
 
